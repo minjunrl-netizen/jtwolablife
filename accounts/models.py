@@ -65,12 +65,18 @@ class User(AbstractUser):
     def is_seller(self):
         return self.role == self.Role.SELLER
 
-    def get_descendant_ids(self):
-        """자신 하위 전체 유저 ID 목록 (재귀)"""
+    def get_descendant_ids(self, _visited=None):
+        """자신 하위 전체 유저 ID 목록 (재귀, 순환 방지)"""
+        if _visited is None:
+            _visited = set()
+        if self.id in _visited:
+            return []
+        _visited.add(self.id)
         child_ids = list(User.objects.filter(parent=self).values_list('id', flat=True))
         all_ids = list(child_ids)
         for cid in child_ids:
-            all_ids.extend(User.objects.get(pk=cid).get_descendant_ids())
+            if cid not in _visited:
+                all_ids.extend(User.objects.get(pk=cid).get_descendant_ids(_visited=_visited))
         return all_ids
 
     def get_all_order_user_ids(self):

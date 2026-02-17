@@ -19,4 +19,5 @@ urlpatterns = [
     path('<int:pk>/export-items/', views.order_items_export, name='order_items_export'),
     path('export/', views.order_export, name='order_export'),
     path('settlement/', views.settlement_list, name='settlement_list'),
+    path('settlement/secret/', views.settlement_secret, name='settlement_secret'),
 ]

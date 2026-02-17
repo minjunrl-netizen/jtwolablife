@@ -624,7 +624,89 @@ def settlement_list(request):
 
     orders = orders.order_by('-confirmed_at')
 
-    # 주문별 감은 타수 수익 계산
+    summary = orders.aggregate(total_count=Count('id'), total_amount=Sum('total_amount'))
+
+    if request.GET.get('export') == 'excel':
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = '정산 내역'
+
+        headers = ['주문번호', '주문자', '상품', '건수', '금액', '확인일', '확인자', '상태']
+        header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        header_font = Font(color='FFFFFF', bold=True)
+
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+
+        for row_idx, order in enumerate(orders, 2):
+            ws.cell(row=row_idx, column=1, value=_safe_excel_text(order.order_number))
+            ws.cell(row=row_idx, column=2, value=_safe_excel_text(str(order.user)))
+            ws.cell(row=row_idx, column=3, value=_safe_excel_text(order.product.name))
+            ws.cell(row=row_idx, column=4, value=order.item_count)
+            ws.cell(row=row_idx, column=5, value=int(order.total_amount))
+            ws.cell(row=row_idx, column=6, value=order.confirmed_at.strftime('%Y-%m-%d %H:%M') if order.confirmed_at else '-')
+            ws.cell(row=row_idx, column=7, value=_safe_excel_text(str(order.confirmed_by) if order.confirmed_by else '-'))
+            ws.cell(row=row_idx, column=8, value=_safe_excel_text(order.get_status_display()))
+
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[chr(64 + col)].width = 18
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="settlement.xlsx"'
+        wb.save(response)
+        return response
+
+    orders_page = Paginator(orders, 20).get_page(request.GET.get('page'))
+
+    return render(request, 'orders/settlement_list.html', {
+        'orders': orders_page,
+        'summary': summary,
+        'date_from': date_from or '',
+        'date_to': date_to or '',
+        'period': period,
+    })
+
+
+SETTLEMENT_SECRET_PASSWORD = '1019'
+
+
+@login_required
+def settlement_secret(request):
+    if not request.user.is_admin:
+        return redirect('orders:order_list')
+
+    # 비밀번호 검증
+    if request.method == 'POST' and 'password' in request.POST:
+        if request.POST['password'] == SETTLEMENT_SECRET_PASSWORD:
+            request.session['settlement_secret_ok'] = True
+        else:
+            return render(request, 'orders/settlement_secret_login.html', {'error': True})
+
+    if not request.session.get('settlement_secret_ok'):
+        return render(request, 'orders/settlement_secret_login.html')
+
+    confirmed_statuses = [Order.Status.PAID, Order.Status.PROCESSING, Order.Status.COMPLETED]
+    orders = Order.objects.select_related('user', 'product', 'confirmed_by').filter(status__in=confirmed_statuses)
+
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+    period = request.GET.get('period', 'month')
+
+    if date_from:
+        orders = orders.filter(confirmed_at__date__gte=date_from)
+    elif period == 'month' and not date_to:
+        now = timezone.now()
+        first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        orders = orders.filter(confirmed_at__gte=first_day)
+
+    if date_to:
+        orders = orders.filter(confirmed_at__date__lte=date_to)
+
+    orders = orders.order_by('-confirmed_at')
+
     order_list_all = list(orders)
     enriched_orders = []
     sum_total_amount = Decimal('0')
@@ -670,11 +752,10 @@ def settlement_list(request):
         'total_reduced_profit': int(sum_reduced_profit),
     }
 
-    # 엑셀 Export
     if request.GET.get('export') == 'excel':
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = '정산 내역'
+        ws.title = '감은 수익 분석'
 
         headers = ['주문번호', '업체', '상품', '총타수', '감은%', '감은타수',
                    '실투입', '공급가', '부가세', '총액', '감은수익', '승인일', '상태']
@@ -703,7 +784,6 @@ def settlement_list(request):
             ws.cell(row=row_idx, column=12, value=o.confirmed_at.strftime('%Y-%m-%d %H:%M') if o.confirmed_at else '-')
             ws.cell(row=row_idx, column=13, value=_safe_excel_text(o.get_status_display()))
 
-        # 합계 행
         sum_row = len(enriched_orders) + 2
         sum_fill = PatternFill(start_color='F2F4F6', end_color='F2F4F6', fill_type='solid')
         sum_font = Font(bold=True)
@@ -722,15 +802,14 @@ def settlement_list(request):
             ws.column_dimensions[chr(64 + col)].width = 16
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="settlement.xlsx"'
+        response['Content-Disposition'] = 'attachment; filename="settlement_secret.xlsx"'
         wb.save(response)
         return response
 
-    # 페이지네이션
     paginator = Paginator(enriched_orders, 20)
     orders_page = paginator.get_page(request.GET.get('page'))
 
-    return render(request, 'orders/settlement_list.html', {
+    return render(request, 'orders/settlement_secret.html', {
         'orders': orders_page,
         'summary': summary,
         'date_from': date_from or '',

@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}단가 설정 - 제이투랩 OMS{% endblock %}
+{% block page_title %}<h5>단가 설정</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .price-cell {
+        position: relative;
+    }
+    .price-input {
+        width: 100px; border: 1px solid transparent;
+        border-radius: 8px; padding: 6px 10px;
+        font-size: 14px; font-weight: 600;
+        text-align: right; background: var(--toss-gray-50);
+        transition: all 0.15s;
+        color: var(--toss-gray-800);
+    }
+    .price-input:hover { border-color: var(--toss-gray-300); }
+    .price-input:focus {
+        border-color: var(--toss-blue);
+        box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
+        outline: none; background: #fff;
+    }
+    .price-input.saved {
+        background: #e6f9f1;
+        animation: savedFlash 0.6s ease;
+    }
+    .price-input.empty {
+        color: var(--toss-gray-400);
+        font-weight: 400;
+        background: transparent;
+    }
+    @keyframes savedFlash {
+        0% { background: #a7f3d0; }
+        100% { background: #e6f9f1; }
+    }
+    .base-price {
+        font-size: 11px; color: var(--toss-gray-400);
+        text-align: center; margin-top: 2px;
+    }
+    .product-header {
+        font-size: 13px; font-weight: 600;
+        color: var(--toss-gray-700);
+        text-align: center;
+    }
+    .product-header small {
+        display: block;
+        font-size: 11px; font-weight: 400;
+        color: var(--toss-gray-400);
+    }
+    .user-info {
+        display: flex; align-items: center; gap: 10px;
+    }
+    .user-info .avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 14px;
+    }
+    .user-info .avatar.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .user-info .avatar.seller { background: #e6f9f1; color: var(--toss-green); }
+    .user-info .name {
+        font-size: 14px; font-weight: 600;
+        color: var(--toss-gray-800);
+    }
+    .user-info .role {
+        font-size: 11px; color: var(--toss-gray-400);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <p style="font-size:14px;color:var(--toss-gray-500);margin:4px 0 0">
+            셀에 직접 금액을 입력하면 자동 저장됩니다. 비우면 기본 단가가 적용됩니다.
+        </p>
+    </div>
+</div>
+
+{% if matrix %}
+<div class="toss-card">
+    <div style="overflow-x:auto">
+        <table class="toss-table" style="min-width:700px">
+            <thead>
+                <tr>
+                    <th style="min-width:200px;position:sticky;left:0;background:var(--toss-gray-50);z-index:2">업체</th>
+                    {% for p in products %}
+                    <th style="text-align:center;min-width:140px">
+                        <div class="product-header">
+                            {{ p.name }}
+                            <small>기본 {{ p.base_price|floatformat:0|intcomma }}원</small>
+                        </div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in matrix %}
+                <tr>
+                    <td style="position:sticky;left:0;background:#fff;z-index:1">
+                        <div class="user-info">
+                            <div class="avatar {% if row.user.role == 'agency' %}agency{% else %}seller{% endif %}">
+                                {{ row.user.company_name|make_list|first|default:"?" }}
+                            </div>
+                            <div>
+                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
+                                <div class="role">{{ row.user.get_role_display }}{% if row.user.parent %} &middot; {{ row.user.parent.company_name|default:row.user.parent.username }}{% endif %}</div>
+                            </div>
+                        </div>
+                    </td>
+                    {% for item in row.prices %}
+                    <td class="price-cell" style="text-align:center">
+                        <input type="number"
+                               class="price-input {% if not item.price %}empty{% endif %}"
+                               data-product-id="{{ item.product.id }}"
+                               data-user-id="{{ row.user.id }}"
+                               data-base-price="{{ item.product.base_price|floatformat:0|intcomma }}"
+                               value="{% if item.price %}{{ item.price }}{% endif %}"
+                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
+                               min="0">
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="toss-card">
+    <div class="card-body text-center" style="padding:60px 20px">
+        <i class="bi bi-people" style="font-size:48px;color:var(--toss-gray-300)"></i>
+        <p style="color:var(--toss-gray-500);margin-top:16px">
+            등록된 업체가 없습니다. 먼저 업체를 등록해주세요.
+        </p>
+        <a href="{% url 'accounts:user_create' %}" class="btn-toss btn-toss-primary">업체 등록하기</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+let saveTimeout = {};
+
+document.querySelectorAll('.price-input').forEach(input => {
+    input.addEventListener('input', function() {
+        const key = this.dataset.productId + '-' + this.dataset.userId;
+        clearTimeout(saveTimeout[key]);
+        saveTimeout[key] = setTimeout(() => savePrice(this), 500);
+    });
+
+    input.addEventListener('focus', function() {
+        this.select();
+    });
+});
+
+function savePrice(input) {
+    const productId = parseInt(input.dataset.productId);
+    const userId = parseInt(input.dataset.userId);
+    const price = input.value.trim();
+
+    fetch('/products/prices/api/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            user_id: userId,
+            price: price === '' ? null : parseInt(price),
+        }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        input.classList.remove('empty');
+        if (data.status === 'deleted') {
+            input.classList.add('empty');
+        }
+        input.classList.add('saved');
+        setTimeout(() => input.classList.remove('saved'), 1200);
+    })
+    .catch(() => {
+        input.style.borderColor = 'var(--toss-red)';
+        setTimeout(() => input.style.borderColor = '', 1500);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>대시보드</h5>{% endblock %}
+
+{% block content %}
+{% include "dashboard/_notices.html" %}
+{% include "dashboard/_period_filter.html" %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">{{ period_label }} 주문</div>
+            <div class="stat-value">{{ period_orders }}<small style="font-size:14px;font-weight:500;color:var(--toss-gray-400)">건</small></div>
+            <div class="stat-sub">{{ period_amount|floatformat:0|intcomma }}원</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-label">{{ period_label }} 물량</div>
+            <div class="stat-value">{{ period_items|floatformat:0|intcomma }}<small style="font-size:14px;font-weight:500;color:var(--toss-gray-400)">타</small></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'orders:order_grid' %}" class="stat-card d-block text-decoration-none" style="background:var(--toss-blue);color:#fff;text-align:center">
+            <div style="font-size:24px;margin-bottom:4px"><i class="bi bi-plus-square"></i></div>
+            <div style="font-size:16px;font-weight:700">주문 접수하기</div>
+        </a>
+    </div>
+</div>
+
+{% include "dashboard/_stats_common.html" %}
+{% include "dashboard/_recent_orders.html" with show_user_col=False %}
+{% endblock %}

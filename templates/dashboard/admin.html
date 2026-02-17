@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>대시보드</h5>{% endblock %}
+
+{% block content %}
+{% include "dashboard/_notices.html" %}
+{% include "dashboard/_period_filter.html" %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">전체 업체</div>
+            <div class="stat-value">{{ total_users }}</div>
+            <div class="stat-sub">책임자 {{ total_managers }} &middot; 대행사 {{ total_agencies }} &middot; 셀러 {{ total_sellers }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">{{ period_label }} 주문</div>
+            <div class="stat-value">{{ period_orders }}<small style="font-size:14px;font-weight:500;color:var(--toss-gray-400)">건</small></div>
+            <div class="stat-sub">{{ period_amount|floatformat:0|intcomma }}원</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">{{ period_label }} 물량</div>
+            <div class="stat-value">{{ period_items|floatformat:0|intcomma }}<small style="font-size:14px;font-weight:500;color:var(--toss-gray-400)">타</small></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-label">접수 대기</div>
+            <div class="stat-value" style="color:var(--toss-orange)">{{ pending_orders }}</div>
+            <div class="stat-sub">확인 필요</div>
+        </div>
+    </div>
+</div>
+
+{% include "dashboard/_stats_common.html" %}
+{% include "dashboard/_recent_orders.html" with show_user_col=True user_col_label="업체" %}
+{% endblock %}

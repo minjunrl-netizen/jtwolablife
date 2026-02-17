@@ -1,0 +1,41 @@
+<!-- 최근 주문 테이블 -->
+<div class="toss-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>최근 주문</span>
+        <a href="{% url 'orders:order_list' %}" class="btn-toss btn-toss-light btn-toss-sm">전체 보기</a>
+    </div>
+    <div style="overflow-x:auto">
+        <table class="toss-table">
+            <thead>
+                <tr>
+                    <th>주문번호</th>
+                    {% if show_user_col %}<th>{{ user_col_label|default:"업체" }}</th>{% endif %}
+                    <th>상품</th>
+                    <th>건수</th>
+                    <th>금액</th>
+                    <th>상태</th>
+                    <th>주문일</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr onclick="location.href='{% url 'orders:order_detail' order.pk %}'" style="cursor:pointer">
+                    <td style="font-weight:600;color:var(--toss-gray-700)">{{ order.order_number }}</td>
+                    {% if show_user_col %}<td>{{ order.user.company_name|default:order.user.username }}</td>{% endif %}
+                    <td>{{ order.product.name }}</td>
+                    <td>{{ order.item_count }}건</td>
+                    <td style="font-weight:600">{{ order.total_amount|floatformat:0|intcomma }}원</td>
+                    <td>
+                        <span class="toss-badge {% if order.status == 'submitted' %}blue{% elif order.status == 'paid' %}green{% elif order.status == 'processing' %}orange{% elif order.status == 'completed' %}green{% else %}gray{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="color:var(--toss-gray-500)">{{ order.created_at|date:"m/d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="{% if show_user_col %}7{% else %}6{% endif %}" style="text-align:center;padding:40px;color:var(--toss-gray-400)">아직 주문이 없습니다</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

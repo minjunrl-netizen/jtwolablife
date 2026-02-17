@@ -1,0 +1,13 @@
+<!-- 기간 필터 칩 -->
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="?period=today" class="btn-toss btn-toss-sm {% if current_period == 'today' %}btn-toss-primary{% else %}btn-toss-light{% endif %}">오늘</a>
+    <a href="?period=week" class="btn-toss btn-toss-sm {% if current_period == 'week' %}btn-toss-primary{% else %}btn-toss-light{% endif %}">이번 주</a>
+    <a href="?period=month" class="btn-toss btn-toss-sm {% if current_period == 'month' %}btn-toss-primary{% else %}btn-toss-light{% endif %}">이번 달</a>
+    <span style="color:var(--toss-gray-300);margin:0 4px">|</span>
+    <form class="d-flex align-items-center gap-2" method="get" style="margin:0">
+        <input type="date" name="date_from" value="{{ date_from }}" class="toss-input" style="padding:5px 10px;font-size:13px;width:140px">
+        <span style="font-size:13px;color:var(--toss-gray-500)">~</span>
+        <input type="date" name="date_to" value="{{ date_to }}" class="toss-input" style="padding:5px 10px;font-size:13px;width:140px">
+        <button type="submit" class="btn-toss btn-toss-sm {% if current_period == 'custom' %}btn-toss-primary{% else %}btn-toss-light{% endif %}">조회</button>
+    </form>
+</div>

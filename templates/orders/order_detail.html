@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% load deadline_tags %}
+{% block page_title %}<h5>주문 상세</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-steps {
+        display: flex; align-items: center; justify-content: space-between;
+        position: relative; padding: 0 12px; margin-bottom: 32px;
+    }
+    .progress-steps::before {
+        content: ''; position: absolute;
+        top: 20px; left: 40px; right: 40px;
+        height: 3px; background: var(--toss-gray-200);
+        border-radius: 2px; z-index: 0;
+    }
+    .progress-steps .progress-fill {
+        position: absolute;
+        top: 20px; left: 40px;
+        height: 3px; background: var(--toss-blue);
+        border-radius: 2px; z-index: 1;
+        transition: width 0.4s ease;
+    }
+    .step {
+        text-align: center; z-index: 2; position: relative;
+    }
+    .step-circle {
+        width: 40px; height: 40px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; font-weight: 700;
+        margin: 0 auto 6px;
+        border: 2px solid var(--toss-gray-200);
+        background: #fff; color: var(--toss-gray-400);
+        transition: all 0.3s;
+    }
+    .step.active .step-circle {
+        border-color: var(--toss-blue); background: var(--toss-blue); color: #fff;
+    }
+    .step.done .step-circle {
+        border-color: var(--toss-blue); background: var(--toss-blue-light); color: var(--toss-blue);
+    }
+    .step-label {
+        font-size: 12px; font-weight: 600; color: var(--toss-gray-400);
+    }
+    .step.active .step-label, .step.done .step-label { color: var(--toss-blue); }
+
+    .info-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    }
+    .info-item .info-label {
+        font-size: 12px; font-weight: 500; color: var(--toss-gray-500); margin-bottom: 4px;
+    }
+    .info-item .info-value {
+        font-size: 15px; font-weight: 600; color: var(--toss-gray-900);
+    }
+    .action-btn {
+        width: 100%; padding: 12px; border-radius: 12px;
+        font-weight: 600; font-size: 14px; border: none;
+        cursor: pointer; transition: all 0.15s;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .data-tag {
+        display: inline-block; padding: 3px 10px;
+        background: var(--toss-gray-50); border-radius: 6px;
+        font-size: 12px; color: var(--toss-gray-700);
+        margin: 2px 2px;
+    }
+    .data-tag .tag-key { color: var(--toss-gray-500); margin-right: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% with current=order.status %}
+{% with progress_pct=0 %}
+
+<div class="row g-4 mb-4">
+    <div class="col-md-8">
+        <div class="toss-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>{{ order.order_number }}</span>
+                <span class="toss-badge {% if current == 'submitted' %}blue{% elif current == 'paid' %}green{% elif current == 'processing' %}orange{% elif current == 'completed' %}green{% else %}red{% endif %}" style="font-size:13px;padding:5px 14px">
+                    {{ order.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <!-- Progress Steps -->
+                <div class="progress-steps">
+                    <div class="progress-fill" style="width:{% if current == 'submitted' %}0{% elif current == 'paid' %}33{% elif current == 'processing' %}66{% elif current == 'completed' %}100{% else %}0{% endif %}%"></div>
+                    <div class="step {% if current == 'submitted' %}active{% elif current == 'paid' or current == 'processing' or current == 'completed' %}done{% endif %}">
+                        <div class="step-circle">{% if current != 'submitted' %}<i class="bi bi-check"></i>{% else %}1{% endif %}</div>
+                        <div class="step-label">접수</div>
+                    </div>
+                    <div class="step {% if current == 'paid' %}active{% elif current == 'processing' or current == 'completed' %}done{% endif %}">
+                        <div class="step-circle">{% if current == 'processing' or current == 'completed' %}<i class="bi bi-check"></i>{% else %}2{% endif %}</div>
+                        <div class="step-label">입금</div>
+                    </div>
+                    <div class="step {% if current == 'processing' %}active{% elif current == 'completed' %}done{% endif %}">
+                        <div class="step-circle">{% if current == 'completed' %}<i class="bi bi-check"></i>{% else %}3{% endif %}</div>
+                        <div class="step-label">작업</div>
+                    </div>
+                    <div class="step {% if current == 'completed' %}active{% endif %}">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">완료</div>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">주문번호</div>
+                        <div class="info-value">{{ order.order_number }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">상위계정 / 주문자</div>
+                        <div class="info-value">{% if order.user.parent %}<span style="color:var(--toss-gray-400);font-size:13px;font-weight:500">{{ order.user.parent.company_name|default:order.user.parent.username }}</span> / {% endif %}{{ order.user.company_name|default:order.user.username }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">상품</div>
+                        <div class="info-value">{{ order.product.name }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">건수</div>
+                        <div class="info-value">{{ order.item_count }}건</div>
+                    </div>
+                    {% if not request.user.is_seller %}
+                    <div class="info-item">
+                        <div class="info-label">총 금액</div>
+                        <div class="info-value" style="color:var(--toss-blue)">{{ order.total_amount|floatformat:0|intcomma }}원</div>
+                    </div>
+                    {% endif %}
+                    <div class="info-item">
+                        <div class="info-label">주문일</div>
+                        <div class="info-value">{{ order.created_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">마감일</div>
+                        <div class="info-value">
+                            {% if order.deadline %}
+                                {{ order.deadline|date:"Y-m-d" }}
+                                {% deadline_dday order.deadline %}
+                            {% else %}
+                                <span style="color:var(--toss-gray-400)">미설정</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if order.memo %}
+                    <div class="info-item" style="grid-column:span 2">
+                        <div class="info-label">메모</div>
+                        <div class="info-value" style="font-weight:500">{{ order.memo }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="toss-card">
+            <div class="card-header">관리</div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                {% if request.user.is_admin or request.user.is_manager %}
+                <!-- 상태 변경 -->
+                <form method="post" action="{% url 'orders:order_status_update' order.pk %}">
+                    {% csrf_token %}
+                    <label class="toss-label">상태 변경</label>
+                    <div class="d-flex gap-2">
+                        <select name="status" class="toss-select flex-grow-1">
+                            {% for val, label in order.Status.choices %}
+                            <option value="{{ val }}" {% if order.status == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn-toss btn-toss-primary btn-toss-sm" style="white-space:nowrap">변경</button>
+                    </div>
+                </form>
+
+                <!-- 입금확인 버튼 -->
+                {% if order.status == 'submitted' %}
+                <form method="post" action="{% url 'orders:order_confirm_payment' order.pk %}">
+                    {% csrf_token %}
+                    <button class="action-btn" style="background:#e6f9f1;color:var(--toss-green)">
+                        <i class="bi bi-check-circle-fill"></i> 입금 확인 OK
+                    </button>
+                </form>
+                {% endif %}
+
+                <!-- 마감일 변경 -->
+                <form method="post" action="{% url 'orders:order_deadline_update' order.pk %}">
+                    {% csrf_token %}
+                    <label class="toss-label">마감일 변경</label>
+                    <div class="d-flex gap-2">
+                        <input type="date" name="deadline" class="toss-input flex-grow-1" value="{{ order.deadline|date:'Y-m-d' }}">
+                        <button class="btn-toss btn-toss-light btn-toss-sm" style="white-space:nowrap">설정</button>
+                    </div>
+                </form>
+
+                {% if order.status == 'submitted' %}
+                <form method="post" action="{% url 'orders:order_cancel' order.pk %}" onsubmit="return confirm('정말 취소하시겠습니까?')">
+                    {% csrf_token %}
+                    <button class="action-btn" style="background:#ffeef0;color:var(--toss-red)">
+                        <i class="bi bi-x-circle"></i> 주문 취소
+                    </button>
+                </form>
+                {% endif %}
+
+                {% if request.user.is_admin %}
+                <form method="post" action="{% url 'orders:order_delete' order.pk %}" onsubmit="return confirm('이 주문을 완전히 삭제하시겠습니까? 복구할 수 없습니다.')">
+                    {% csrf_token %}
+                    <button class="action-btn" style="background:#ffeef0;color:var(--toss-red)">
+                        <i class="bi bi-trash3"></i> 주문 삭제
+                    </button>
+                </form>
+                {% endif %}
+                {% else %}
+                <div style="display:flex;align-items:flex-start;gap:8px;padding:12px 14px;background:#fff8e1;border-radius:10px;border:1px solid #ffe082;">
+                    <i class="bi bi-exclamation-circle-fill" style="color:#f59e0b;font-size:16px;flex-shrink:0;margin-top:1px"></i>
+                    <span style="font-size:13px;color:var(--toss-gray-700);line-height:1.5">취소 버튼은 따로 존재하지 않습니다. 관리자에게 말씀해주세요.</span>
+                </div>
+                {% endif %}
+
+                <a href="{% url 'orders:order_list' %}" class="btn-toss btn-toss-light" style="text-align:center;text-decoration:none;display:block">목록으로</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toss-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>주문 항목 ({{ items|length }}건)</span>
+        <a href="{% url 'orders:order_items_export' order.pk %}" class="btn-toss btn-toss-success btn-toss-sm">
+            <i class="bi bi-download"></i> 엑셀 다운로드
+        </a>
+    </div>
+    <div style="overflow-x:auto">
+        <table class="toss-table">
+            <thead>
+                <tr>
+                    <th style="width:50px">#</th>
+                    <th>입력 데이터</th>
+                    {% if not request.user.is_seller %}<th style="width:100px">단가</th>{% endif %}
+                    <th style="width:80px">상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td style="color:var(--toss-gray-400);font-weight:600">{{ item.row_number }}</td>
+                    <td>
+                        {% for key, value in item.data.items %}
+                        <span class="data-tag"><span class="tag-key">{{ key }}</span>{{ value }}</span>
+                        {% endfor %}
+                    </td>
+                    {% if not request.user.is_seller %}<td style="font-weight:600">{{ item.unit_price|floatformat:0|intcomma }}원</td>{% endif %}
+                    <td>
+                        <span class="toss-badge {% if item.status == 'pending' %}orange{% elif item.status == 'processing' %}blue{% elif item.status == 'completed' %}green{% else %}red{% endif %}">
+                            {{ item.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endwith %}
+{% endwith %}
+{% endblock %}

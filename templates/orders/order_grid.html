@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+{% block page_title %}<h5>주문 접수</h5>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; background: #fff;
+        border-radius: 16px; border: 1px solid var(--toss-gray-100);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        flex-wrap: wrap; gap: 12px;
+    }
+    .summary-text { font-size: 14px; font-weight: 600; color: var(--toss-gray-700); line-height: 1.6; }
+    .summary-text .amount { color: var(--toss-blue); font-size: 16px; font-weight: 800; }
+    .action-bar { display: flex; align-items: center; gap: 8px; padding: 12px 0; }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--toss-gray-400); font-size: 14px; }
+    .empty-state i { font-size: 36px; display: block; margin-bottom: 12px; }
+
+    /* 슬롯 테이블 */
+    .slot-scroll { overflow-x: auto; margin: 0 -1px; }
+    .slot-table { border-collapse: collapse; width: max-content; min-width: 100%; }
+    .slot-table th {
+        font-size: 12px; font-weight: 700; padding: 10px 12px;
+        text-align: center; white-space: nowrap;
+        border: 1px solid rgba(255,255,255,0.2);
+        position: sticky; top: 0; z-index: 1;
+    }
+    .slot-table td {
+        font-size: 13px; padding: 10px 12px;
+        border: 1px solid var(--toss-gray-100);
+        white-space: nowrap; vertical-align: middle;
+    }
+    .slot-table tbody tr:hover { background: var(--toss-gray-50); }
+    .col-idx { width: 40px; text-align: center; color: var(--toss-gray-400); font-weight: 600; }
+    .col-select { min-width: 70px; text-align: center; }
+    .col-number { min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+    .col-date { min-width: 110px; text-align: center; font-variant-numeric: tabular-nums; }
+    .col-text { min-width: 100px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .col-url { min-width: 120px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+    .col-calc { min-width: 80px; text-align: right; font-weight: 700; color: var(--toss-blue); background: #f0f6ff; font-variant-numeric: tabular-nums; }
+    .col-readonly { min-width: 80px; color: var(--toss-gray-400); font-style: italic; font-size: 12px; }
+    .col-sample { color: var(--toss-gray-400); }
+    .col-actions { width: 96px; text-align: center; white-space: nowrap; }
+
+    /* 상품 설명 리치 텍스트 */
+    #productDesc h1, #productDesc h2, #productDesc h3 { font-size: 14px; font-weight: 700; margin: 4px 0; }
+    #productDesc p { margin: 2px 0; }
+    #productDesc ul, #productDesc ol { margin: 4px 0; padding-left: 20px; }
+    #productDesc a { color: var(--toss-blue); }
+
+    /* 모달 */
+    .toss-modal .modal-content { border: none; border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+    .toss-modal .modal-header { border-bottom: 1px solid var(--toss-gray-100); padding: 20px 24px; }
+    .toss-modal .modal-title { font-size: 17px; font-weight: 700; }
+    .toss-modal .modal-body { padding: 24px; }
+    .toss-modal .modal-footer { border-top: 1px solid var(--toss-gray-100); padding: 16px 24px; }
+    .success-icon { width: 64px; height: 64px; border-radius: 50%; background: #e6f9f1; color: var(--toss-green); display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px; }
+    .result-info { font-size: 14px; color: var(--toss-gray-600); margin-bottom: 4px; }
+    .result-info strong { color: var(--toss-gray-900); font-weight: 600; }
+    .slot-form-group { margin-bottom: 16px; }
+    .slot-form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--toss-gray-600); margin-bottom: 6px; }
+    .slot-form-group .required-mark { color: var(--toss-red); }
+
+    /* 카테고리/상품 카드 */
+    .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .category-card {
+        background: #fff; border: 1px solid var(--toss-gray-200); border-radius: 14px;
+        padding: 20px 16px; text-align: center; cursor: pointer;
+        transition: all 0.15s; position: relative;
+    }
+    .category-card:hover { border-color: var(--toss-blue); box-shadow: 0 4px 12px rgba(49,130,246,0.12); transform: translateY(-2px); }
+    .category-card .cat-icon { font-size: 28px; color: var(--toss-blue); margin-bottom: 8px; }
+    .category-card .cat-name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); }
+    .category-card .cat-count { font-size: 12px; color: var(--toss-gray-400); margin-top: 4px; }
+
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .product-card {
+        background: #fff; border: 1px solid var(--toss-gray-200); border-radius: 14px;
+        padding: 18px 16px; cursor: pointer; transition: all 0.15s;
+    }
+    .product-card:hover { border-color: var(--toss-blue); box-shadow: 0 4px 12px rgba(49,130,246,0.12); transform: translateY(-2px); }
+    .product-card .prod-name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); margin-bottom: 4px; }
+    .product-card .prod-price { font-size: 13px; color: var(--toss-blue); font-weight: 700; {% if request.user.is_seller %}display:none;{% endif %} }
+    .product-card .prod-desc { font-size: 12px; color: var(--toss-gray-400); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* 선택된 상품 정보바 */
+    .selected-product-bar {
+        display: flex; align-items: center; gap: 16px;
+        padding: 14px 20px; background: var(--toss-blue-light);
+        border-radius: 12px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .selected-product-bar .sp-name { font-size: 15px; font-weight: 700; color: var(--toss-blue); }
+    .selected-product-bar .sp-price { font-size: 14px; font-weight: 600; color: var(--toss-gray-700); }
+
+    .back-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 13px; font-weight: 600; color: var(--toss-gray-500);
+        background: none; border: none; cursor: pointer; padding: 6px 0; margin-bottom: 12px;
+    }
+    .back-btn:hover { color: var(--toss-gray-700); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Step 0: 카테고리 카드 그리드 -->
+<div id="stepCategory" class="toss-card mb-4">
+    <div class="card-body">
+        <label class="toss-label" style="margin-bottom:12px">카테고리 선택</label>
+        <div class="category-grid">
+            {% for cat in categories %}
+            <div class="category-card" onclick="selectCategory({{ cat.id }}, '{{ cat.name }}')">
+                <div class="cat-icon"><i class="bi {{ cat.icon }}"></i></div>
+                <div class="cat-name">{{ cat.name }}</div>
+                <div class="cat-count">{{ cat.products.count }}개 상품</div>
+            </div>
+            {% empty %}
+            <div style="grid-column:1/-1" class="empty-state">
+                <i class="bi bi-grid"></i>등록된 카테고리가 없습니다
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Step 1: 상품 카드 그리드 (숨김) -->
+<div id="stepProduct" class="toss-card mb-4" style="display:none">
+    <div class="card-body">
+        <button class="back-btn" onclick="backToCategories()">
+            <i class="bi bi-chevron-left"></i> 카테고리로 돌아가기
+        </button>
+        <label class="toss-label" style="margin-bottom:12px">
+            <span id="selectedCategoryName"></span> — 상품 선택
+        </label>
+        <div class="product-grid" id="productGrid"></div>
+    </div>
+</div>
+
+<!-- Step 2: 선택된 상품 정보바 + 슬롯 (숨김) -->
+<div id="stepSlots" style="display:none">
+    <div class="selected-product-bar">
+        <button class="back-btn" onclick="backToCategories()" style="margin:0">
+            <i class="bi bi-chevron-left"></i> 변경
+        </button>
+        <div class="sp-name" id="spName"></div>
+        {% if not request.user.is_seller %}<div class="sp-price" id="spPrice"></div>{% endif %}
+        <div style="flex:1"></div>
+        <div>
+            <label class="toss-label" style="margin:0;display:inline">메모</label>
+            <input type="text" id="orderMemo" class="toss-input" style="width:200px;padding:6px 10px;font-size:13px" placeholder="선택사항">
+        </div>
+    </div>
+    <div id="productDesc" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--toss-gray-50);border-radius:10px;font-size:13px;color:var(--toss-gray-600);line-height:1.7">
+    </div>
+
+    <!-- 액션 바 -->
+    <div class="action-bar">
+        <button class="btn-toss btn-toss-primary btn-toss-sm" onclick="openSlotModal()">
+            <i class="bi bi-plus-lg"></i> 슬롯 추가
+        </button>
+        <button class="btn-toss btn-toss-light btn-toss-sm" onclick="openExcelUploadModal()">
+            <i class="bi bi-file-earmark-arrow-up"></i> 엑셀 대량 업로드
+        </button>
+        <button class="btn-toss btn-toss-light btn-toss-sm" onclick="downloadTemplate()">
+            <i class="bi bi-download"></i> 양식 다운로드
+        </button>
+    </div>
+
+    <!-- 슬롯 테이블 -->
+    <div class="toss-card mb-4">
+        <div class="slot-scroll">
+            <table class="slot-table" id="slotTable">
+                <thead id="slotThead"></thead>
+                <tbody id="slotTbody">
+                    <tr><td colspan="99" class="empty-state"><i class="bi bi-inbox"></i>슬롯을 추가해주세요</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 요약 바 -->
+    <div id="summaryBar" class="summary-bar" style="display:none">
+        <div id="totalInfo" class="summary-text"></div>
+        <div class="d-flex gap-2">
+            <button class="btn-toss btn-toss-light" onclick="resetSlots()">초기화</button>
+            <button class="btn-toss btn-toss-primary" id="submitBtn" onclick="submitOrder()">
+                <i class="bi bi-send"></i> 주문 접수
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- hidden: 현재 선택된 상품 ID -->
+<input type="hidden" id="selectedProductId" value="">
+
+<!-- 슬롯 추가/편집 모달 -->
+<div class="modal fade toss-modal" id="slotModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="slotModalTitle">슬롯 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="slotModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-toss btn-toss-light" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn-toss btn-toss-primary" onclick="saveSlot()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 엑셀 업로드 모달 -->
+<div class="modal fade toss-modal" id="excelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">엑셀 대량 업로드</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:14px;color:var(--toss-gray-600);margin-bottom:16px">
+                    양식 다운로드 후 데이터를 입력한 엑셀 파일(.xlsx)을 업로드하면 슬롯에 자동으로 추가됩니다.<br>
+                    <span style="color:var(--toss-gray-400);font-size:12px">자동계산/고정값 필드는 업로드 시 자동 처리됩니다.</span>
+                </p>
+                <input type="file" id="excelFile" class="toss-input w-100" accept=".xlsx,.xls">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-toss btn-toss-light" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn-toss btn-toss-primary" id="excelUploadBtn" onclick="uploadExcel()">업로드</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 결과 모달 -->
+<div class="modal fade toss-modal" id="resultModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resultTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="resultBody"></div>
+            <div class="modal-footer">
+                <a href="{% url 'orders:order_list' %}" class="btn-toss btn-toss-primary">주문 목록</a>
+                <button type="button" class="btn-toss btn-toss-light" data-bs-dismiss="modal" onclick="backToCategories()">계속 접수</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let slots = [];
+let currentSchema = [];
+let currentPrice = 0;
+let editIdx = null;
+const csrfToken = '{{ csrf_token }}';
+const isSeller = {{ request.user.is_seller|yesno:"true,false" }};
+
+// 필드 타입별 td 클래스
+function colClass(type) {
+    if (type === 'select') return 'col-select';
+    if (type === 'number') return 'col-number';
+    if (type === 'date') return 'col-date';
+    if (type === 'calc') return 'col-calc';
+    if (type === 'date_calc') return 'col-calc col-date';
+    if (type === 'url') return 'col-url';
+    if (type === 'readonly') return 'col-readonly';
+    return 'col-text';
+}
+
+// ── Step 0 → Step 1: 카테고리 선택 ──
+function selectCategory(id, name) {
+    document.getElementById('stepCategory').style.display = 'none';
+    document.getElementById('stepProduct').style.display = '';
+    document.getElementById('stepSlots').style.display = 'none';
+    document.getElementById('selectedCategoryName').textContent = name;
+    document.getElementById('productGrid').innerHTML = '<div style="text-align:center;padding:24px;color:var(--toss-gray-400)"><span class="spinner-border spinner-border-sm"></span> 불러오는 중...</div>';
+
+    fetch(`/products/categories/${id}/products/`)
+        .then(r => r.json())
+        .then(data => {
+            const products = data.products;
+            if (products.length === 0) {
+                document.getElementById('productGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--toss-gray-400)">등록된 상품이 없습니다</div>';
+                return;
+            }
+            if (products.length === 1) {
+                // 상품 1개면 자동선택
+                selectProduct(products[0].id, products[0].name);
+                return;
+            }
+            let html = '';
+            products.forEach(p => {
+                const desc = p.description ? p.description.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+                const shortDesc = desc.length > 30 ? desc.substring(0, 30) + '...' : desc;
+                html += `<div class="product-card" onclick="selectProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
+                    <div class="prod-name">${p.name}</div>
+                    ${!isSeller ? `<div class="prod-price">${p.price.toLocaleString()}원</div>` : ''}
+                    ${shortDesc ? `<div class="prod-desc" title="${desc}">${shortDesc}</div>` : ''}
+                </div>`;
+            });
+            document.getElementById('productGrid').innerHTML = html;
+        });
+}
+
+// ── Step 1 → Step 2: 상품 선택 ──
+function selectProduct(id, name) {
+    document.getElementById('stepCategory').style.display = 'none';
+    document.getElementById('stepProduct').style.display = 'none';
+    document.getElementById('stepSlots').style.display = '';
+    document.getElementById('selectedProductId').value = id;
+
+    fetch(`/products/${id}/schema/`)
+        .then(r => r.json())
+        .then(data => {
+            currentSchema = data.schema;
+            currentPrice = data.price;
+            document.getElementById('spName').textContent = data.name;
+            if (!isSeller) {
+                var spPriceEl = document.getElementById('spPrice');
+                if (spPriceEl) spPriceEl.textContent = data.price.toLocaleString() + '원';
+            }
+
+            const descEl = document.getElementById('productDesc');
+            if (data.description) {
+                descEl.innerHTML = data.description;
+                descEl.style.display = '';
+            } else {
+                descEl.style.display = 'none';
+            }
+
+            slots = [];
+            renderTable();
+        });
+}
+
+// ── 뒤로가기: 카테고리 초기 상태로 ──
+function backToCategories() {
+    document.getElementById('stepCategory').style.display = '';
+    document.getElementById('stepProduct').style.display = 'none';
+    document.getElementById('stepSlots').style.display = 'none';
+    document.getElementById('selectedProductId').value = '';
+    currentSchema = [];
+    currentPrice = 0;
+    slots = [];
+}
+
+// 테이블 렌더링
+function renderTable() {
+    const thead = document.getElementById('slotThead');
+    const tbody = document.getElementById('slotTbody');
+
+    if (!currentSchema.length) {
+        thead.innerHTML = '';
+        tbody.innerHTML = '<tr><td colspan="99" class="empty-state"><i class="bi bi-inbox"></i>슬롯을 추가해주세요</td></tr>';
+        document.getElementById('summaryBar').style.display = 'none';
+        return;
+    }
+
+    // thead
+    let thHtml = '<tr><th class="col-idx" style="background:var(--toss-gray-600);color:#fff">#</th>';
+    currentSchema.forEach(f => {
+        const bg = f.color || '#4472C4';
+        thHtml += `<th class="${colClass(f.type)}" style="background:${bg};color:#fff">${f.label || f.name}</th>`;
+    });
+    thHtml += '<th class="col-actions" style="background:var(--toss-gray-600);color:#fff">관리</th></tr>';
+    thead.innerHTML = thHtml;
+
+    // tbody
+    if (slots.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${currentSchema.length + 2}" class="empty-state"><i class="bi bi-inbox"></i>슬롯을 추가해주세요</td></tr>`;
+        document.getElementById('summaryBar').style.display = 'none';
+        return;
+    }
+
+    let html = '';
+    slots.forEach((slot, idx) => {
+        html += '<tr>';
+        html += `<td class="col-idx">${idx + 1}</td>`;
+        currentSchema.forEach(f => {
+            const cls = colClass(f.type);
+            const val = slot[f.name] || '';
+
+            if (f.type === 'readonly') {
+                const desc = f.description || '';
+                html += `<td class="${cls}" title="${desc.replace(/"/g, '&quot;')}">${desc.length > 20 ? desc.substring(0, 20) + '...' : desc}</td>`;
+            } else if (f.type === 'calc') {
+                html += `<td class="${cls}">${val ? Number(val).toLocaleString() : ''}</td>`;
+            } else if (f.type === 'date_calc') {
+                html += `<td class="${cls}">${val}</td>`;
+            } else if (f.type === 'number') {
+                html += `<td class="${cls}">${val ? Number(val).toLocaleString() : ''}</td>`;
+            } else if (f.type === 'date') {
+                html += `<td class="${cls}">${val}</td>`;
+            } else if (f.type === 'url') {
+                const short = val.length > 25 ? val.substring(0, 25) + '...' : val;
+                html += `<td class="${cls}" title="${val.replace(/"/g, '&quot;')}">${short}</td>`;
+            } else {
+                // text, select — 샘플 고정값이면 샘플 표시
+                const display = val || (f.sample || '');
+                const isSample = !val && f.sample;
+                html += `<td class="${cls}${isSample ? ' col-sample' : ''}" title="${val.replace(/"/g, '&quot;')}">${display.length > 20 ? display.substring(0, 20) + '...' : display}</td>`;
+            }
+        });
+        html += `<td class="col-actions">
+            <button class="btn-toss btn-toss-light btn-toss-sm" style="padding:3px 6px;font-size:11px" onclick="copySlot(${idx})" title="복사"><i class="bi bi-copy"></i></button>
+            <button class="btn-toss btn-toss-light btn-toss-sm" style="padding:3px 6px;font-size:11px" onclick="openSlotModal(${idx})" title="편집"><i class="bi bi-pencil"></i></button>
+            <button class="btn-toss btn-toss-danger btn-toss-sm" style="padding:3px 6px;font-size:11px" onclick="deleteSlot(${idx})" title="삭제"><i class="bi bi-trash"></i></button>
+        </td>`;
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+
+    // 요약 바
+    const qtyField = currentSchema.find(f => f.is_quantity);
+    let totalQty = 0;
+    if (qtyField) {
+        slots.forEach(s => { totalQty += parseInt(s[qtyField.name] || 0) || 0; });
+    } else {
+        totalQty = slots.length;
+    }
+    const supplyAmt = totalQty * currentPrice;
+    const vatAmt = Math.round(supplyAmt * 0.1);
+    const totalAmt = supplyAmt + vatAmt;
+
+    const qtyLabel = qtyField ? `${qtyField.label} ${totalQty.toLocaleString()}` : `${slots.length}건`;
+
+    if (isSeller) {
+        document.getElementById('totalInfo').innerHTML = `총 <span class="amount">${qtyLabel}</span>`;
+    } else {
+        document.getElementById('totalInfo').innerHTML =
+            `${qtyLabel} &times; ${currentPrice.toLocaleString()}원 = ` +
+            `공급가 <strong>${supplyAmt.toLocaleString()}원</strong> + ` +
+            `부가세 <strong>${vatAmt.toLocaleString()}원</strong> = ` +
+            `<span class="amount">${totalAmt.toLocaleString()}원</span>`;
+    }
+    document.getElementById('summaryBar').style.display = 'flex';
+}
+
+// 슬롯 모달 열기
+function openSlotModal(idx) {
+    editIdx = (idx !== undefined) ? idx : null;
+    const isEdit = editIdx !== null;
+    document.getElementById('slotModalTitle').textContent = isEdit ? '슬롯 편집' : '슬롯 추가';
+
+    let html = '';
+    currentSchema.forEach(field => {
+        // readonly — 설명만 표시
+        if (field.type === 'readonly') {
+            if (field.description) {
+                html += `<div class="slot-form-group">
+                    <label>${field.label || field.name}</label>
+                    <div style="padding:8px 12px;background:var(--toss-gray-50);border-radius:8px;font-size:13px;color:var(--toss-gray-500);font-style:italic">${field.description}</div>
+                </div>`;
+            }
+            return;
+        }
+
+        // calc — 자동계산 숫자 (readonly)
+        if (field.type === 'calc') {
+            const value = isEdit ? (slots[editIdx][field.name] || '') : '';
+            html += `<div class="slot-form-group">
+                <label>${field.label || field.name} <span style="font-size:11px;color:var(--toss-blue);font-weight:400">자동계산</span></label>
+                <input type="text" class="toss-input w-100" data-field="${field.name}" value="${value}" readonly
+                       style="background:#f0f6ff;color:var(--toss-blue);font-weight:700;cursor:default">
+            </div>`;
+            return;
+        }
+
+        // date_calc — 자동계산 날짜 (readonly)
+        if (field.type === 'date_calc') {
+            const value = isEdit ? (slots[editIdx][field.name] || '') : '';
+            html += `<div class="slot-form-group">
+                <label>${field.label || field.name} <span style="font-size:11px;color:var(--toss-blue);font-weight:400">자동계산</span></label>
+                <input type="text" class="toss-input w-100" data-field="${field.name}" value="${value}" readonly
+                       style="background:#f0f6ff;color:var(--toss-blue);font-weight:700;cursor:default"
+                       placeholder="시작일과 작업일수를 입력하면 자동 계산됩니다">
+            </div>`;
+            return;
+        }
+
+        // sample 고정값 — 모달에서 숨김 (date는 사용자가 직접 입력해야 하므로 제외)
+        if (field.sample && field.type !== 'date') return;
+
+        const value = isEdit ? (slots[editIdx][field.name] || '') : '';
+        const requiredMark = field.required ? '<span class="required-mark">*</span>' : '';
+        html += `<div class="slot-form-group"><label>${field.label || field.name} ${requiredMark}</label>`;
+
+        if (field.type === 'select' && field.options) {
+            html += `<select class="toss-select w-100" data-field="${field.name}">`;
+            html += `<option value="">선택</option>`;
+            field.options.forEach(opt => {
+                html += `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`;
+            });
+            html += `</select>`;
+        } else if (field.type === 'number') {
+            html += `<input type="number" class="toss-input w-100" data-field="${field.name}" value="${value}" oninput="recalcFields()">`;
+        } else if (field.type === 'date') {
+            html += `<input type="date" class="toss-input w-100" data-field="${field.name}" value="${value}" onchange="recalcFields()">`;
+        } else if (field.type === 'url') {
+            html += `<input type="url" class="toss-input w-100" data-field="${field.name}" value="${value.replace(/"/g, '&quot;')}" placeholder="https://...">`;
+        } else {
+            html += `<input type="text" class="toss-input w-100" data-field="${field.name}" value="${value.replace(/"/g, '&quot;')}" placeholder="${field.label || field.name}">`;
+        }
+        html += `</div>`;
+    });
+
+    document.getElementById('slotModalBody').innerHTML = html;
+    recalcFields();
+    new bootstrap.Modal(document.getElementById('slotModal')).show();
+}
+
+// 슬롯 저장
+function saveSlot() {
+    const data = {};
+    let hasError = false;
+
+    currentSchema.forEach(field => {
+        if (field.type === 'readonly') return;
+
+        // sample 고정값 자동 포함 (calc, date_calc, date는 입력/계산값 사용)
+        if (field.sample && !['date', 'calc', 'date_calc'].includes(field.type)) {
+            data[field.name] = field.sample;
+            return;
+        }
+
+        const el = document.querySelector(`[data-field="${field.name}"]`);
+        const value = el ? el.value.trim() : '';
+        data[field.name] = value;
+
+        // calc, date_calc는 유효성 검사 스킵
+        if (field.type === 'calc' || field.type === 'date_calc') return;
+
+        if (field.required && !value) {
+            if (el) el.style.borderColor = 'var(--toss-red)';
+            hasError = true;
+        } else if (el) {
+            el.style.borderColor = '';
+        }
+    });
+
+    if (hasError) return;
+
+    if (editIdx !== null) {
+        slots[editIdx] = data;
+    } else {
+        slots.push(data);
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('slotModal')).hide();
+    renderTable();
+}
+
+// 슬롯 복사
+function copySlot(idx) { slots.splice(idx + 1, 0, {...slots[idx]}); renderTable(); }
+
+// 슬롯 삭제
+function deleteSlot(idx) { slots.splice(idx, 1); renderTable(); }
+
+// 초기화
+function resetSlots() { slots = []; renderTable(); }
+
+// 엑셀 양식 다운로드
+function downloadTemplate() {
+    const productId = document.getElementById('selectedProductId').value;
+    if (!productId) return;
+    window.location.href = `/orders/api/excel-template/${productId}/`;
+}
+
+// 엑셀 업로드 모달
+function openExcelUploadModal() {
+    document.getElementById('excelFile').value = '';
+    new bootstrap.Modal(document.getElementById('excelModal')).show();
+}
+
+// 엑셀 업로드
+function uploadExcel() {
+    const file = document.getElementById('excelFile').files[0];
+    if (!file) { alert('파일을 선택하세요.'); return; }
+
+    const productId = document.getElementById('selectedProductId').value;
+    const formData = new FormData();
+    formData.append('product_id', productId);
+    formData.append('file', file);
+
+    const btn = document.getElementById('excelUploadBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
+
+    fetch('/orders/api/excel-upload/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+        body: formData,
+    })
+    .then(r => { if (!r.ok) throw new Error('서버 오류 (' + r.status + ')'); return r.json(); })
+    .then(data => {
+        if (data.success) {
+            slots = slots.concat(data.rows);
+            renderTable();
+            bootstrap.Modal.getInstance(document.getElementById('excelModal')).hide();
+            alert(`${data.count}건이 추가되었습니다.`);
+        } else {
+            alert(data.message || '업로드 실패');
+        }
+    })
+    .catch(err => alert('오류: ' + err.message))
+    .finally(() => { btn.disabled = false; btn.innerHTML = '업로드'; });
+}
+
+// 자동계산 필드 재계산
+function recalcFields() {
+    currentSchema.forEach(field => {
+        // 숫자 자동계산
+        if (field.type === 'calc' && field.formula) {
+            const fa = field.formula;
+            const elA = document.querySelector(`[data-field="${fa.fieldA}"]`);
+            const elB = document.querySelector(`[data-field="${fa.fieldB}"]`);
+            const elResult = document.querySelector(`[data-field="${field.name}"]`);
+            if (!elA || !elB || !elResult) return;
+
+            const a = parseFloat(elA.value) || 0;
+            const b = parseFloat(elB.value) || 0;
+            let result = 0;
+            switch (fa.operator) {
+                case '+': result = a + b; break;
+                case '-': result = a - b; break;
+                case '*': result = a * b; break;
+                case '/': result = b !== 0 ? a / b : 0; break;
+            }
+            elResult.value = result % 1 === 0 ? result.toString() : result.toFixed(2);
+        }
+
+        // 날짜 자동계산
+        if (field.type === 'date_calc' && field.formula) {
+            const fa = field.formula;
+            const elDate = document.querySelector(`[data-field="${fa.dateField}"]`);
+            const elDays = document.querySelector(`[data-field="${fa.daysField}"]`);
+            const elResult = document.querySelector(`[data-field="${field.name}"]`);
+            if (!elDate || !elDays || !elResult) return;
+
+            const dateVal = elDate.value;
+            const days = parseInt(elDays.value) || 0;
+            if (dateVal && days > 0) {
+                const d = new Date(dateVal);
+                d.setDate(d.getDate() + days - 1);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                elResult.value = `${y}-${m}-${dd}`;
+            } else {
+                elResult.value = '';
+            }
+        }
+    });
+}
+
+// 주문 접수
+function submitOrder() {
+    if (slots.length === 0) { alert('슬롯을 추가해주세요.'); return; }
+
+    const productId = document.getElementById('selectedProductId').value;
+    const memo = document.getElementById('orderMemo').value;
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
+
+    fetch('/orders/api/submit/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ product_id: parseInt(productId), rows: slots, memo: memo }),
+    })
+    .then(r => r.json().then(data => ({status: r.status, data})))
+    .then(({status, data}) => {
+        if (data.success) {
+            document.getElementById('resultTitle').textContent = '주문 접수 완료';
+            let resultHtml = `
+                <div style="text-align:center">
+                    <div class="success-icon"><i class="bi bi-check-lg"></i></div>
+                    <div class="result-info">주문번호: <strong>${data.order_number}</strong></div>
+                    <div class="result-info">접수 건수: <strong>${data.item_count}건</strong></div>`;
+            if (!isSeller) {
+                resultHtml += `
+                    <div style="margin:12px 0;padding:12px;background:var(--toss-gray-50);border-radius:10px">
+                        <div class="result-info">공급가: <strong>${data.supply_amount.toLocaleString()}원</strong></div>
+                        <div class="result-info">부가세(10%): <strong>${data.vat_amount.toLocaleString()}원</strong></div>
+                        <div style="border-top:1px solid var(--toss-gray-200);margin-top:8px;padding-top:8px">
+                            <div class="result-info" style="font-size:16px">총 견적금액: <strong style="color:var(--toss-blue)">${data.total_amount.toLocaleString()}원</strong></div>
+                        </div>
+                    </div>`;
+            }
+            resultHtml += `</div>`;
+            document.getElementById('resultBody').innerHTML = resultHtml;
+        } else {
+            document.getElementById('resultTitle').textContent = '접수 실패';
+            let errorHtml = '<div style="color:var(--toss-red)">';
+            data.errors.forEach(err => {
+                errorHtml += `<p style="margin:4px 0;font-size:14px">${err.row > 0 ? err.row + '행: ' : ''}${err.message}</p>`;
+            });
+            errorHtml += '</div>';
+            document.getElementById('resultBody').innerHTML = errorHtml;
+        }
+        new bootstrap.Modal(document.getElementById('resultModal')).show();
+    })
+    .catch(err => alert('오류가 발생했습니다: ' + err.message))
+    .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> 주문 접수'; });
+}
+</script>
+{% endblock %}

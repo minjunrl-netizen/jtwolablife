@@ -1,0 +1,50 @@
+<!-- 주문 현황 + 물량 통계 통합 카드 -->
+<div class="toss-card mb-4">
+    <div class="card-header">주문 현황</div>
+    <div class="card-body" style="padding:20px">
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+                <div class="mini-stat" style="border-left:3px solid var(--toss-orange);padding-left:12px">
+                    <div class="mini-stat-label">승인 대기</div>
+                    <div class="mini-stat-value" style="color:var(--toss-orange)">{{ status_submitted }}<small>건</small></div>
+                    <div class="mini-stat-sub">입금 대기</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="mini-stat" style="border-left:3px solid var(--toss-blue);padding-left:12px">
+                    <div class="mini-stat-label">입금 확인</div>
+                    <div class="mini-stat-value" style="color:var(--toss-blue)">{{ status_paid }}<small>건</small></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="mini-stat" style="border-left:3px solid var(--toss-orange);padding-left:12px">
+                    <div class="mini-stat-label">작업중</div>
+                    <div class="mini-stat-value" style="color:var(--toss-orange)">{{ status_processing }}<small>건</small></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="mini-stat" style="border-left:3px solid var(--toss-green);padding-left:12px">
+                    <div class="mini-stat-label">완료</div>
+                    <div class="mini-stat-value" style="color:var(--toss-green)">{{ status_completed }}<small>건</small></div>
+                </div>
+            </div>
+        </div>
+        <div style="border-top:1px solid var(--toss-gray-100);padding-top:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--toss-gray-500);margin-bottom:12px">물량 통계</div>
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="mini-stat">
+                        <div class="mini-stat-label">{{ period_label }}</div>
+                        <div class="mini-stat-value">{{ period_items|floatformat:0|intcomma }}<small>타</small></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="mini-stat">
+                        <div class="mini-stat-label">누적</div>
+                        <div class="mini-stat-value">{{ total_items|floatformat:0|intcomma }}<small>타</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

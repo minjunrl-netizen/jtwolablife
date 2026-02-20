@@ -1,6 +1,7 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from decimal import Decimal
 
 
 class User(AbstractUser):
@@ -47,7 +48,7 @@ class User(AbstractUser):
         verbose_name_plural = '사용자'
 
     def __str__(self):
-        return f"[{self.get_role_display()}] {self.company_name or self.username}"
+        return f'[{self.get_role_display()}] {self.company_name or self.username}'
 
     @property
     def is_admin(self):
@@ -65,20 +66,27 @@ class User(AbstractUser):
     def is_seller(self):
         return self.role == self.Role.SELLER
 
-    def get_descendant_ids(self, _visited=None):
-        """자신 하위 전체 유저 ID 목록 (재귀, 순환 방지)"""
-        if _visited is None:
-            _visited = set()
-        if self.id in _visited:
-            return []
-        _visited.add(self.id)
-        child_ids = list(User.objects.filter(parent=self).values_list('id', flat=True))
-        all_ids = list(child_ids)
-        for cid in child_ids:
-            if cid not in _visited:
-                all_ids.extend(User.objects.get(pk=cid).get_descendant_ids(_visited=_visited))
-        return all_ids
+    def get_descendant_ids(self):
+        """Return all descendant user ids using iterative BFS."""
+        visited = {self.id}
+        frontier = [self.id]
+        descendants = []
+
+        while frontier:
+            child_ids = list(
+                User.objects.filter(parent_id__in=frontier).values_list('id', flat=True)
+            )
+            next_frontier = []
+            for child_id in child_ids:
+                if child_id in visited:
+                    continue
+                visited.add(child_id)
+                descendants.append(child_id)
+                next_frontier.append(child_id)
+            frontier = next_frontier
+
+        return descendants
 
     def get_all_order_user_ids(self):
-        """주문 조회 시 포함할 전체 유저 ID (자신 포함)"""
+        """주문 조회에 포함할 전체 사용자 ID(자기 자신 포함)."""
         return [self.id] + self.get_descendant_ids()

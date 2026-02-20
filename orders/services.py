@@ -1,9 +1,15 @@
-from django.db import transaction
-from django.utils import timezone
+import os
 from datetime import timedelta
 from decimal import Decimal
-from .models import Order, OrderItem
+
+from django.db import transaction
+from django.utils import timezone
+
 from products.models import PricePolicy
+
+from .models import Order, OrderItem
+
+ORDER_MAX_ITEMS = int(os.getenv('ORDER_MAX_ITEMS', '5000'))
 
 
 def get_user_price(product, user):
@@ -14,32 +20,49 @@ def get_user_price(product, user):
         return product.base_price
 
 
+def _parse_positive_int(raw_value, field_name):
+    try:
+        parsed = int(float(raw_value or 0))
+    except (TypeError, ValueError):
+        raise ValueError(f'{field_name} 값이 올바르지 않습니다.')
+    if parsed <= 0:
+        raise ValueError(f'{field_name} 값은 1 이상이어야 합니다.')
+    return parsed
+
+
 @transaction.atomic
 def create_order(user, product, items_data, memo=''):
-    """주문 접수 (견적서 방식 - 수량 × 단가 + 부가세 10%)"""
+    """주문 접수: 수량 * 단가 + 부가세 10%."""
+    if not items_data:
+        raise ValueError('주문 데이터가 비어 있습니다.')
+    if len(items_data) > ORDER_MAX_ITEMS:
+        raise ValueError(f'한 번에 최대 {ORDER_MAX_ITEMS}건까지 접수할 수 있습니다.')
+
     unit_price = get_user_price(product, user)
 
-    # 수량 필드 찾기 (is_quantity 플래그)
     qty_field = None
-    for f in product.schema:
-        if f.get('is_quantity'):
-            qty_field = f['name']
+    for field in product.schema:
+        if field.get('is_quantity'):
+            qty_field = field['name']
             break
 
-    # 총 수량 계산
     if qty_field:
-        total_qty = sum(int(float(item.get(qty_field, 0) or 0)) for item in items_data)
+        total_qty = 0
+        for idx, item in enumerate(items_data, start=1):
+            qty = _parse_positive_int(item.get(qty_field), f'{idx}행 수량')
+            total_qty += qty
     else:
         total_qty = len(items_data)
+
+    if total_qty <= 0:
+        raise ValueError('총 수량이 0보다 커야 합니다.')
 
     supply_amount = unit_price * total_qty
     vat_amount = (supply_amount * Decimal('0.1')).quantize(Decimal('1'))
     total_amount = supply_amount + vat_amount
 
-    # 마감일 계산 (최대 작업일 수 기준)
     deadline_date = timezone.now().date() + timedelta(days=product.max_work_days)
 
-    # 주문 생성 (pk 기반 주문번호 — race condition 방지)
     order = Order.objects.create(
         order_number='TEMP',
         user=user,
@@ -54,15 +77,15 @@ def create_order(user, product, items_data, memo=''):
     order.order_number = str(order.pk)
     order.save(update_fields=['order_number'])
 
-    # 주문 항목 생성
-    order_items = []
-    for idx, data in enumerate(items_data, start=1):
-        order_items.append(OrderItem(
+    order_items = [
+        OrderItem(
             order=order,
             row_number=idx,
             data=data,
             unit_price=unit_price,
-        ))
+        )
+        for idx, data in enumerate(items_data, start=1)
+    ]
     OrderItem.objects.bulk_create(order_items)
 
     return order
@@ -70,7 +93,7 @@ def create_order(user, product, items_data, memo=''):
 
 @transaction.atomic
 def confirm_payment(order, confirmed_by):
-    """관리자가 입금 확인 처리"""
+    """관리자의 입금 확인 처리."""
     if order.status != Order.Status.SUBMITTED:
         raise ValueError('접수완료 상태의 주문만 입금확인 처리할 수 있습니다.')
 
@@ -89,5 +112,3 @@ def cancel_order(order, cancelled_by):
     order.status = Order.Status.CANCELLED
     order.save(update_fields=['status', 'updated_at'])
     return order
-
-

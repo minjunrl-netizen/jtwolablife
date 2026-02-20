@@ -200,6 +200,12 @@ def user_delete(request, pk):
     if user == request.user:
         messages.error(request, '자기 자신은 삭제할 수 없습니다.')
         return redirect('accounts:user_edit', pk=pk)
+    if user.children.exists():
+        messages.error(request, '하위 계정이 있는 사용자는 삭제할 수 없습니다.')
+        return redirect('accounts:user_edit', pk=pk)
+    if user.orders.exists():
+        messages.error(request, '주문 이력이 있는 사용자는 삭제할 수 없습니다.')
+        return redirect('accounts:user_edit', pk=pk)
     user.delete()
     messages.success(request, '사용자가 삭제되었습니다.')
     return redirect('accounts:user_list')

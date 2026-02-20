@@ -1,8 +1,10 @@
-﻿import json
+import json
 import logging
+import os
 from datetime import date, datetime as dt, timedelta as td
 from decimal import Decimal
 from io import BytesIO
+from secrets import compare_digest
 from urllib.parse import quote
 
 import openpyxl
@@ -670,7 +672,9 @@ def settlement_list(request):
     })
 
 
-SETTLEMENT_SECRET_PASSWORD = '1019'
+SETTLEMENT_SECRET_PASSWORD = os.getenv('SETTLEMENT_SECRET_PASSWORD', '')
+SETTLEMENT_SECRET_SESSION_KEY = 'settlement_secret_ok'
+SETTLEMENT_SECRET_SESSION_AGE_SECONDS = int(os.getenv('SETTLEMENT_SECRET_SESSION_AGE_SECONDS', '1800'))
 
 
 @login_required
@@ -678,14 +682,20 @@ def settlement_secret(request):
     if not request.user.is_admin:
         return redirect('orders:order_list')
 
+    if not SETTLEMENT_SECRET_PASSWORD:
+        messages.error(request, '정산 보안 비밀번호가 설정되지 않았습니다.')
+        return redirect('orders:settlement_list')
+
     # 비밀번호 검증
     if request.method == 'POST' and 'password' in request.POST:
-        if request.POST['password'] == SETTLEMENT_SECRET_PASSWORD:
-            request.session['settlement_secret_ok'] = True
+        input_password = request.POST.get('password', '')
+        if compare_digest(input_password, SETTLEMENT_SECRET_PASSWORD):
+            request.session[SETTLEMENT_SECRET_SESSION_KEY] = True
+            request.session.set_expiry(SETTLEMENT_SECRET_SESSION_AGE_SECONDS)
         else:
             return render(request, 'orders/settlement_secret_login.html', {'error': True})
 
-    if not request.session.get('settlement_secret_ok'):
+    if not request.session.get(SETTLEMENT_SECRET_SESSION_KEY):
         return render(request, 'orders/settlement_secret_login.html')
 
     confirmed_statuses = [Order.Status.PAID, Order.Status.PROCESSING, Order.Status.COMPLETED]
@@ -816,3 +826,6 @@ def settlement_secret(request):
         'date_to': date_to or '',
         'period': period,
     })
+
+
+

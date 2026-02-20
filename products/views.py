@@ -26,11 +26,11 @@ def product_create(request):
         form = ProductForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, '?곹뭹???앹꽦?섏뿀?듬땲??')
+            messages.success(request, '상품이 생성되었습니다.')
             return redirect('products:product_list')
     else:
         form = ProductForm()
-    return render(request, 'products/product_form.html', {'form': form, 'title': '?곹뭹 ?깅줉'})
+    return render(request, 'products/product_form.html', {'form': form, 'title': '상품 등록'})
 
 
 @login_required
@@ -42,11 +42,11 @@ def product_edit(request, pk):
         form = ProductForm(request.POST, instance=product)
         if form.is_valid():
             form.save()
-            messages.success(request, '?곹뭹???섏젙?섏뿀?듬땲??')
+            messages.success(request, '상품이 수정되었습니다.')
             return redirect('products:product_list')
     else:
         form = ProductForm(instance=product)
-    return render(request, 'products/product_form.html', {'form': form, 'title': '?곹뭹 ?섏젙'})
+    return render(request, 'products/product_form.html', {'form': form, 'title': '상품 수정'})
 
 
 @login_required
@@ -59,7 +59,7 @@ def price_policy_list(request):
 
 @login_required
 def price_matrix(request):
-    """?곹뭹 x ?낆껜 ?④? 留ㅽ듃由?뒪"""
+    """상품 x 업체 단가 매트릭스"""
     if not request.user.is_admin:
         return redirect('dashboard:index')
     products = Product.objects.filter(is_active=True)
@@ -139,11 +139,11 @@ def price_policy_create(request):
         form = PricePolicyForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, '?④? ?뺤콉???앹꽦?섏뿀?듬땲??')
+            messages.success(request, '단가 정책이 생성되었습니다.')
             return redirect('products:price_policy_list')
     else:
         form = PricePolicyForm()
-    return render(request, 'products/price_policy_form.html', {'form': form, 'title': '?④? ?ㅼ젙'})
+    return render(request, 'products/price_policy_form.html', {'form': form, 'title': '단가 설정'})
 
 
 @login_required
@@ -155,11 +155,11 @@ def price_policy_edit(request, pk):
         form = PricePolicyForm(request.POST, instance=policy)
         if form.is_valid():
             form.save()
-            messages.success(request, '?④? ?뺤콉???섏젙?섏뿀?듬땲??')
+            messages.success(request, '단가 정책이 수정되었습니다.')
             return redirect('products:price_policy_list')
     else:
         form = PricePolicyForm(instance=policy)
-    return render(request, 'products/price_policy_form.html', {'form': form, 'title': '?④? ?섏젙'})
+    return render(request, 'products/price_policy_form.html', {'form': form, 'title': '단가 수정'})
 
 
 @login_required
@@ -169,7 +169,7 @@ def price_policy_delete(request, pk):
     policy = get_object_or_404(PricePolicy, pk=pk)
     if request.method == 'POST':
         policy.delete()
-        messages.success(request, '?④? ?뺤콉????젣?섏뿀?듬땲??')
+        messages.success(request, '단가 정책이 삭제되었습니다.')
     return redirect('products:price_policy_list')
 
 
@@ -177,7 +177,7 @@ def price_policy_delete(request, pk):
 def api_product_schema(request, pk):
     product = get_object_or_404(Product, pk=pk)
     user = request.user
-    # ?대떦 ?좎????④? 議고쉶
+    # 해당 유저별 단가 조회
     try:
         policy = PricePolicy.objects.get(product=product, user=user)
         price = int(policy.price)
@@ -193,7 +193,7 @@ def api_product_schema(request, pk):
     })
 
 
-# ?? 移댄뀒怨좊━ 愿由???????????????????????????????????
+# 카테고리 관리
 
 @login_required
 def category_list(request):
@@ -213,11 +213,11 @@ def category_create(request):
         form = CategoryForm(request.POST)
         if form.is_valid():
             form.save()
-            messages.success(request, '移댄뀒怨좊━媛 ?앹꽦?섏뿀?듬땲??')
+            messages.success(request, '카테고리가 생성되었습니다.')
             return redirect('products:category_list')
     else:
         form = CategoryForm()
-    return render(request, 'products/category_form.html', {'form': form, 'title': '移댄뀒怨좊━ ?깅줉'})
+    return render(request, 'products/category_form.html', {'form': form, 'title': '카테고리 등록'})
 
 
 @login_required
@@ -229,11 +229,11 @@ def category_edit(request, pk):
         form = CategoryForm(request.POST, instance=category)
         if form.is_valid():
             form.save()
-            messages.success(request, '移댄뀒怨좊━媛 ?섏젙?섏뿀?듬땲??')
+            messages.success(request, '카테고리가 수정되었습니다.')
             return redirect('products:category_list')
     else:
         form = CategoryForm(instance=category)
-    return render(request, 'products/category_form.html', {'form': form, 'title': '移댄뀒怨좊━ ?섏젙'})
+    return render(request, 'products/category_form.html', {'form': form, 'title': '카테고리 수정'})
 
 
 @login_required
@@ -243,18 +243,18 @@ def category_delete(request, pk):
     category = get_object_or_404(Category, pk=pk)
     if request.method == 'POST':
         category.delete()
-        messages.success(request, '移댄뀒怨좊━媛 ??젣?섏뿀?듬땲??')
+        messages.success(request, '카테고리가 삭제되었습니다.')
     return redirect('products:category_list')
 
 
 @login_required
 def api_category_products(request, pk):
-    """移댄뀒怨좊━???쒖꽦 ?곹뭹 紐⑸줉 JSON 諛섑솚"""
+    """카테고리의 활성 상품 목록 JSON 반환"""
     category = get_object_or_404(Category, pk=pk, is_active=True)
     products = category.products.filter(is_active=True).order_by('name')
     data = []
     for p in products:
-        # ?ъ슜?먮퀎 ?④? 議고쉶
+        # 사용자별 단가 조회
         try:
             policy = PricePolicy.objects.get(product=p, user=request.user)
             price = int(policy.price)

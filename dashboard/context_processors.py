@@ -1,9 +1,10 @@
 def notifications(request):
     if request.user.is_authenticated:
         from dashboard.models import Notification
-        notifs = Notification.objects.filter(user=request.user, is_read=False)
+        unread_qs = Notification.objects.filter(user=request.user, is_read=False)
+        unread_notifications = list(unread_qs[:10])
         return {
-            'unread_notifications': notifs[:10],
-            'unread_count': notifs.count(),
+            'unread_notifications': unread_notifications,
+            'unread_count': unread_qs.count(),
         }
     return {}

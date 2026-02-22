@@ -6,7 +6,6 @@ from decimal import Decimal
 class Order(models.Model):
     class Status(models.TextChoices):
         SUBMITTED = 'submitted', '접수완료'
-        PAID = 'paid', '입금확인'
         PROCESSING = 'processing', '작업중'
         COMPLETED = 'completed', '완료'
         CANCELLED = 'cancelled', '취소'
@@ -15,7 +14,8 @@ class Order(models.Model):
         max_length=30, unique=True, verbose_name='주문번호',
     )
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name='orders', verbose_name='주문자',
     )
     product = models.ForeignKey(
@@ -44,6 +44,14 @@ class Order(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='confirmed_orders',
         verbose_name='입금확인자',
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_orders',
+        verbose_name='승인자',
+    )
+    approved_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='승인 시각',
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='주문일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
@@ -97,7 +105,8 @@ class BalanceTransaction(models.Model):
         REFUND = 'refund', '환불'
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name='balance_transactions', verbose_name='사용자',
     )
     tx_type = models.CharField(

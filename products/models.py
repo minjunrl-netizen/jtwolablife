@@ -76,7 +76,13 @@ class PricePolicy(models.Model):
         related_name='price_policies', verbose_name='적용 대상',
     )
     price = models.DecimalField(
-        max_digits=10, decimal_places=0, verbose_name='적용 단가',
+        max_digits=10, decimal_places=0,
+        null=True, blank=True, verbose_name='적용 단가',
+    )
+    reduction_rate = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='감은 비율 (%)',
+        help_text='null이면 상품 기본 감은 비율 사용',
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
 

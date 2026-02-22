@@ -83,12 +83,14 @@ function confirmDelete() {
 
     // 역할 → 상위 역할 매핑
     var roleParentMap = {
+        'accountant': 'admin',
         'manager': 'admin',
         'agency': 'manager',
         'seller': 'agency'
     };
 
     var hintMap = {
+        'accountant': '경리는 총관리자 소속으로 배정됩니다',
         'manager': '책임자는 총관리자 소속으로 배정됩니다',
         'agency': '대행사는 책임자 소속으로 배정됩니다',
         'seller': '셀러는 대행사 소속으로 배정됩니다'

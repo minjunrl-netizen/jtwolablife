@@ -29,76 +29,66 @@ def logout_view(request):
 
 @login_required
 def user_list(request):
-    from products.models import Product, PricePolicy, Category
+    pass  # admin view - account management only
 
-    if request.user.is_admin:
-        categories = Category.objects.filter(is_active=True).order_by('display_order', 'name')
-        products = Product.objects.filter(is_active=True).select_related('category').order_by('category__display_order', 'name')
-        policies = {
-            (p.product_id, p.user_id): int(p.price)
-            for p in PricePolicy.objects.all()
-        }
-
-        def _build_price_list(user, products, policies):
-            return [{'product': p, 'price': policies.get((p.id, user.id))} for p in products]
+    if request.user.is_admin or request.user.is_accountant:
+        # 경리는 상위 총관리자의 범위를 사용
+        scope_user = request.user.parent if request.user.is_accountant and request.user.parent else request.user
+        descendant_ids = set(scope_user.get_descendant_ids())
 
         # 책임자 → 대행사 → 셀러 3단계 트리
-        managers = User.objects.filter(role='manager', is_active=True).order_by('company_name')
+        managers = User.objects.filter(role='manager', is_active=True, id__in=descendant_ids).order_by('company_name')
         manager_groups = []
         assigned_agency_ids = set()
 
         for manager in managers:
-            agencies = User.objects.filter(parent=manager, role='agency', is_active=True).order_by('company_name')
+            agencies = User.objects.filter(parent=manager, role='agency', is_active=True, id__in=descendant_ids).order_by('company_name')
             assigned_agency_ids.update(agencies.values_list('id', flat=True))
 
             agency_rows = []
             for agency in agencies:
-                sellers = User.objects.filter(parent=agency, role='seller', is_active=True).order_by('company_name')
-                seller_rows = [{'user': s, 'prices': _build_price_list(s, products, policies)} for s in sellers]
+                sellers = User.objects.filter(parent=agency, role='seller', is_active=True, id__in=descendant_ids).order_by('company_name')
+                seller_rows = [{'user': s} for s in sellers]
                 agency_rows.append({
                     'agency': agency,
-                    'prices': _build_price_list(agency, products, policies),
                     'sellers': seller_rows,
                 })
 
             manager_groups.append({
                 'manager': manager,
-                'prices': _build_price_list(manager, products, policies),
                 'agencies': agency_rows,
             })
 
-        # 책임자 소속 없는 대행사 → 셀러 트리
+        # 책임자 소속 없는 대행사 → 셀러 트리 (소속 내에서만)
         independent_agencies = User.objects.filter(
-            role='agency', is_active=True,
+            role='agency', is_active=True, id__in=descendant_ids,
         ).exclude(id__in=assigned_agency_ids).order_by('company_name')
         indie_agency_groups = []
         assigned_seller_ids = set()
 
         for agency in independent_agencies:
-            sellers = User.objects.filter(parent=agency, role='seller', is_active=True).order_by('company_name')
+            sellers = User.objects.filter(parent=agency, role='seller', is_active=True, id__in=descendant_ids).order_by('company_name')
             assigned_seller_ids.update(sellers.values_list('id', flat=True))
-            seller_rows = [{'user': s, 'prices': _build_price_list(s, products, policies)} for s in sellers]
+            seller_rows = [{'user': s} for s in sellers]
             indie_agency_groups.append({
                 'agency': agency,
-                'prices': _build_price_list(agency, products, policies),
                 'sellers': seller_rows,
             })
 
-        # 총관리자 목록 (직속 셀러 포함)
-        admins = User.objects.filter(role='admin', is_active=True).order_by('company_name')
+        # 총관리자 본인 (직속 경리 + 셀러 포함)
         admin_rows = []
-        admin_seller_ids = set()
-        for a in admins:
-            direct_sellers = User.objects.filter(parent=a, role='seller', is_active=True).order_by('company_name')
-            seller_rows = [{'user': s, 'prices': _build_price_list(s, products, policies)} for s in direct_sellers]
-            admin_seller_ids.update(direct_sellers.values_list('id', flat=True))
-            admin_rows.append({
-                'user': a,
-                'prices': _build_price_list(a, products, policies),
-                'sellers': seller_rows,
-            })
+        direct_accountants = User.objects.filter(parent=scope_user, role='accountant', is_active=True).order_by('company_name')
+        accountant_rows = [{'user': a} for a in direct_accountants]
+        direct_sellers = User.objects.filter(parent=scope_user, role='seller', is_active=True).order_by('company_name')
+        seller_rows = [{'user': s} for s in direct_sellers]
+        admin_seller_ids = set(direct_sellers.values_list('id', flat=True))
+        admin_rows.append({
+            'user': scope_user,
+            'accountants': accountant_rows,
+            'sellers': seller_rows,
+        })
 
-        # 소속 없는 셀러
+        # 소속 없는 셀러 (소속 내에서만)
         all_assigned_seller_ids = set()
         for mg in manager_groups:
             for ag in mg['agencies']:
@@ -111,17 +101,15 @@ def user_list(request):
         all_assigned_seller_ids.update(admin_seller_ids)
 
         independent_sellers = User.objects.filter(
-            role='seller', is_active=True,
+            role='seller', is_active=True, id__in=descendant_ids,
         ).exclude(id__in=all_assigned_seller_ids).order_by('company_name')
-        indie_rows = [{'user': s, 'prices': _build_price_list(s, products, policies)} for s in independent_sellers]
+        indie_rows = [{'user': s} for s in independent_sellers]
 
         return render(request, 'accounts/user_list.html', {
             'admin_rows': admin_rows,
             'manager_groups': manager_groups,
             'groups': indie_agency_groups,
             'indie_sellers': indie_rows,
-            'products': products,
-            'categories': categories,
         })
 
     elif request.user.is_manager:
@@ -150,7 +138,7 @@ def user_list(request):
 
 @login_required
 def user_create(request):
-    if not (request.user.is_admin or request.user.is_manager or request.user.is_agency):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager or request.user.is_agency):
         return redirect('dashboard:index')
     if request.method == 'POST':
         form = UserForm(request.POST, request_user=request.user)
@@ -165,11 +153,12 @@ def user_create(request):
 
 @login_required
 def user_edit(request, pk):
-    if not (request.user.is_admin or request.user.is_manager or request.user.is_agency):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager or request.user.is_agency):
         return redirect('dashboard:index')
     user = get_object_or_404(User, pk=pk)
-    if request.user.is_manager:
-        descendant_ids = request.user.get_descendant_ids()
+    if request.user.is_admin or request.user.is_accountant or request.user.is_manager:
+        scope_user = request.user.parent if request.user.is_accountant and request.user.parent else request.user
+        descendant_ids = scope_user.get_descendant_ids()
         if user.pk not in descendant_ids:
             return redirect('dashboard:index')
     elif request.user.is_agency and user.parent != request.user:
@@ -188,11 +177,12 @@ def user_edit(request, pk):
 @login_required
 @require_POST
 def user_delete(request, pk):
-    if not (request.user.is_admin or request.user.is_manager or request.user.is_agency):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager or request.user.is_agency):
         return redirect('dashboard:index')
     user = get_object_or_404(User, pk=pk)
-    if request.user.is_manager:
-        descendant_ids = request.user.get_descendant_ids()
+    if request.user.is_admin or request.user.is_accountant or request.user.is_manager:
+        scope_user = request.user.parent if request.user.is_accountant and request.user.parent else request.user
+        descendant_ids = scope_user.get_descendant_ids()
         if user.pk not in descendant_ids:
             return redirect('dashboard:index')
     elif request.user.is_agency and user.parent != request.user:
@@ -202,9 +192,6 @@ def user_delete(request, pk):
         return redirect('accounts:user_edit', pk=pk)
     if user.children.exists():
         messages.error(request, '하위 계정이 있는 사용자는 삭제할 수 없습니다.')
-        return redirect('accounts:user_edit', pk=pk)
-    if user.orders.exists():
-        messages.error(request, '주문 이력이 있는 사용자는 삭제할 수 없습니다.')
         return redirect('accounts:user_edit', pk=pk)
     user.delete()
     messages.success(request, '사용자가 삭제되었습니다.')

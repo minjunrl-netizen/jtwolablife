@@ -50,7 +50,7 @@ def index(request):
     user = request.user
     today = timezone.now().date()
 
-    if user.is_admin:
+    if user.is_admin or user.is_accountant:
         return admin_dashboard(request, today)
     elif user.is_manager:
         return manager_dashboard(request, today)
@@ -86,15 +86,21 @@ def _period_context(request, start_date, end_date, period, date_from, date_to):
 def admin_dashboard(request, today):
     start_date, end_date, period, date_from, date_to = _parse_period(request)
 
-    orders = Order.objects.all()
+    user = request.user
+    all_ids = user.get_all_order_user_ids()
+    descendant_ids = user.get_descendant_ids()
+
+    orders = Order.objects.filter(user_id__in=all_ids)
     paid_orders = orders.filter(confirmed_at__isnull=False)
     period_paid = paid_orders.filter(confirmed_at__date__gte=start_date, confirmed_at__date__lte=end_date)
 
+    descendant_users = User.objects.filter(id__in=descendant_ids)
+
     context = {
-        'total_users': User.objects.count(),
-        'total_managers': User.objects.filter(role='manager').count(),
-        'total_agencies': User.objects.filter(role='agency').count(),
-        'total_sellers': User.objects.filter(role='seller').count(),
+        'total_users': descendant_users.count(),
+        'total_managers': descendant_users.filter(role='manager').count(),
+        'total_agencies': descendant_users.filter(role='agency').count(),
+        'total_sellers': descendant_users.filter(role='seller').count(),
         'period_orders': period_paid.count(),
         'period_amount': period_paid.aggregate(s=Sum('total_amount'))['s'] or 0,
         'pending_orders': orders.filter(status='submitted').count(),
@@ -191,7 +197,7 @@ def api_deadline_events(request):
         orders = orders.filter(deadline__lte=end)
 
     # 역할별 필터
-    if user.is_manager:
+    if user.is_admin or user.is_accountant or user.is_manager:
         orders = orders.filter(user_id__in=user.get_all_order_user_ids())
     elif user.is_agency:
         child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
@@ -270,7 +276,7 @@ def notification_read_all(request):
 
 @login_required
 def notice_list(request):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('dashboard:index')
     notices = Notice.objects.select_related('created_by').all()
     return render(request, 'dashboard/notice_list.html', {'notices': notices})
@@ -278,7 +284,7 @@ def notice_list(request):
 
 @login_required
 def notice_create(request):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('dashboard:index')
     if request.method == 'POST':
         form = NoticeForm(request.POST)
@@ -295,7 +301,7 @@ def notice_create(request):
 
 @login_required
 def notice_edit(request, pk):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('dashboard:index')
     notice = get_object_or_404(Notice, pk=pk)
     if request.method == 'POST':
@@ -311,7 +317,7 @@ def notice_edit(request, pk):
 
 @login_required
 def notice_delete(request, pk):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('dashboard:index')
     if request.method == 'POST':
         notice = get_object_or_404(Notice, pk=pk)

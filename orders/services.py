@@ -13,11 +13,12 @@ ORDER_MAX_ITEMS = int(os.getenv('ORDER_MAX_ITEMS', '5000'))
 
 
 def get_user_price(product, user):
+    default_price = product.cost_price if user.is_admin else product.base_price
     try:
         policy = PricePolicy.objects.get(product=product, user=user)
-        return policy.price
+        return policy.price if policy.price is not None else default_price
     except PricePolicy.DoesNotExist:
-        return product.base_price
+        return default_price
 
 
 def _parse_positive_int(raw_value, field_name):

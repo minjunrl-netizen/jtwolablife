@@ -6,10 +6,11 @@ from .models import User
 
 # 역할별 상위 역할 매핑: 해당 역할의 parent는 반드시 이 역할이어야 함
 ROLE_PARENT_MAP = {
-    'admin': None,        # 총관리자는 상위 없음
-    'manager': 'admin',   # 책임자 → 총관리자 소속
-    'agency': 'manager',  # 대행사 → 책임자 소속
-    'seller': 'agency',   # 셀러 → 대행사 소속
+    'admin': None,          # 총관리자는 상위 없음
+    'accountant': 'admin',  # 경리 → 총관리자 소속
+    'manager': 'admin',     # 책임자 → 총관리자 소속
+    'agency': 'manager',    # 대행사 → 책임자 소속
+    'seller': 'agency',     # 셀러 → 대행사 소속
 }
 
 
@@ -68,9 +69,10 @@ class UserForm(forms.ModelForm):
             elif self.request_user.is_agency:
                 self.fields['role'].choices = [('seller', '셀러')]
                 self.fields.pop('parent')
-            elif self.request_user.is_admin:
+            elif self.request_user.is_admin or self.request_user.is_accountant:
                 self.fields['role'].choices = [
                     ('', '선택하세요'),
+                    ('accountant', '경리'),
                     ('manager', '책임자'),
                     ('agency', '대행사'),
                     ('seller', '셀러'),
@@ -108,7 +110,8 @@ class UserForm(forms.ModelForm):
 
     def get_parent_json(self):
         """템플릿에서 JS로 넘길 역할별 상위 유저 데이터"""
-        return json.dumps(getattr(self, '_parent_data', {}), ensure_ascii=False)
+        raw = json.dumps(getattr(self, '_parent_data', {}), ensure_ascii=False)
+        return raw.replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
 
     def clean_password1(self):
         password = self.cleaned_data.get('password1')

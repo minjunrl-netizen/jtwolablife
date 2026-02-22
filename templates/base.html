@@ -299,9 +299,9 @@
             </li>
             {% endif %}
 
-            {% if user.is_admin or user.is_manager or user.is_agency %}
+            {% if user.is_admin or user.is_accountant or user.is_manager or user.is_agency %}
             <li class="nav-section">관리</li>
-            {% if user.is_admin %}
+            {% if user.is_admin or user.is_accountant %}
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'product_list' or request.resolver_match.url_name == 'product_create' or request.resolver_match.url_name == 'product_edit' %}active{% endif %}" href="{% url 'products:product_list' %}">
                     <i class="bi bi-grid"></i> 상품 관리
@@ -313,19 +313,26 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'price_matrix' %}active{% endif %}" href="{% url 'products:price_matrix' %}">
+                    <i class="bi bi-cash-stack"></i> 단가 설정
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'notice_list' or request.resolver_match.url_name == 'notice_create' or request.resolver_match.url_name == 'notice_edit' %}active{% endif %}" href="{% url 'dashboard:notice_list' %}">
                     <i class="bi bi-megaphone"></i> 공지 관리
                 </a>
             </li>
             {% endif %}
+            {% if user.is_admin or user.is_accountant or user.is_manager or user.is_agency %}
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'user_list' or request.resolver_match.url_name == 'user_edit' %}active{% endif %}" href="{% url 'accounts:user_list' %}">
                     <i class="bi bi-people"></i> 업체 관리
                 </a>
             </li>
             {% endif %}
+            {% endif %}
 
-            {% if user.is_admin %}
+            {% if user.is_admin or user.is_accountant %}
             <li class="nav-section">정산</li>
             <li class="nav-item">
                 <a class="nav-link {% if request.resolver_match.url_name == 'settlement_list' %}active{% endif %}" href="{% url 'orders:settlement_list' %}">

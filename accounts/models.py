@@ -7,12 +7,13 @@ from django.db import models
 class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', '총관리자'
+        ACCOUNTANT = 'accountant', '경리'
         MANAGER = 'manager', '책임자'
         AGENCY = 'agency', '대행사'
         SELLER = 'seller', '셀러'
 
     role = models.CharField(
-        max_length=10,
+        max_length=12,
         choices=Role.choices,
         default=Role.SELLER,
         verbose_name='역할',
@@ -55,6 +56,10 @@ class User(AbstractUser):
         return self.role == self.Role.ADMIN
 
     @property
+    def is_accountant(self):
+        return self.role == self.Role.ACCOUNTANT
+
+    @property
     def is_manager(self):
         return self.role == self.Role.MANAGER
 
@@ -88,5 +93,8 @@ class User(AbstractUser):
         return descendants
 
     def get_all_order_user_ids(self):
-        """주문 조회에 포함할 전체 사용자 ID(자기 자신 포함)."""
+        """주문 조회에 포함할 전체 사용자 ID(자기 자신 포함).
+        경리는 상위 총관리자의 범위를 상속받는다."""
+        if self.is_accountant and self.parent:
+            return self.parent.get_all_order_user_ids()
         return [self.id] + self.get_descendant_ids()

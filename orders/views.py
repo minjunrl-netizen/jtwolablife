@@ -225,6 +225,13 @@ def api_excel_upload(request):
     if not file.name.lower().endswith('.xlsx'):
         return JsonResponse({'success': False, 'message': 'xlsx 파일만 업로드할 수 있습니다.'}, status=400)
 
+    ALLOWED_EXCEL_TYPES = {
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+    }
+    if file.content_type not in ALLOWED_EXCEL_TYPES:
+        return JsonResponse({'success': False, 'message': '허용되지 않는 파일 형식입니다.'}, status=400)
+
     product = get_object_or_404(Product, pk=product_id, is_active=True)
     schema = product.schema or []
 
@@ -318,19 +325,25 @@ def api_excel_upload(request):
 @login_required
 def order_list(request):
     user = request.user
-    if user.is_admin:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').all()
-    elif user.is_manager:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user_id__in=user.get_all_order_user_ids())
+    if user.is_admin or user.is_accountant or user.is_manager:
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user_id__in=user.get_all_order_user_ids())
     elif user.is_agency:
         child_ids = User.objects.filter(parent=user).values_list('id', flat=True)
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user_id__in=list(child_ids) + [user.id])
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user_id__in=list(child_ids) + [user.id])
     else:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user=user)
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user=user)
 
     status = request.GET.get('status')
     if status:
         orders = orders.filter(status=status)
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        orders = orders.filter(
+            models.Q(order_number__icontains=q) |
+            models.Q(user__company_name__icontains=q) |
+            models.Q(user__username__icontains=q)
+        )
 
     paginator = Paginator(orders, 20)
     orders_page = paginator.get_page(request.GET.get('page'))
@@ -338,27 +351,40 @@ def order_list(request):
         'orders': orders_page,
         'status_choices': Order.Status.choices,
         'current_status': status,
+        'search_query': q,
     })
 
 
 @login_required
 def order_detail(request, pk):
-    order = get_object_or_404(Order.objects.select_related('user', 'user__parent', 'product'), pk=pk)
+    order = get_object_or_404(Order.objects.select_related('user', 'user__parent', 'product', 'approved_by'), pk=pk)
     user = request.user
-    if not user.is_admin:
-        if user.is_manager:
-            if order.user_id not in user.get_all_order_user_ids():
-                return redirect('orders:order_list')
-        elif user.is_agency:
-            child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
-            if order.user_id not in child_ids + [user.id]:
-                return redirect('orders:order_list')
-        elif order.user != user:
+    if user.is_admin or user.is_accountant or user.is_manager:
+        if order.user_id not in user.get_all_order_user_ids():
             return redirect('orders:order_list')
+    elif user.is_agency:
+        child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
+        if order.user_id not in child_ids + [user.id]:
+            return redirect('orders:order_list')
+    elif order.user != user:
+        return redirect('orders:order_list')
+
+    schema = order.product.schema or []
+    columns = [f.get('label', f['name']) for f in schema]
+    items = order.items.all()
+    item_rows = []
+    for item in items:
+        values = [item.data.get(f['name'], '') for f in schema]
+        item_rows.append({
+            'item': item,
+            'values': values,
+        })
 
     return render(request, 'orders/order_detail.html', {
         'order': order,
-        'items': order.items.all(),
+        'items': items,
+        'columns': columns,
+        'item_rows': item_rows,
     })
 
 
@@ -367,9 +393,9 @@ def order_detail(request, pk):
 def order_cancel(request, pk):
     order = get_object_or_404(Order, pk=pk)
     user = request.user
-    if not (user.is_admin or user.is_manager):
+    if not (user.is_admin or user.is_accountant or user.is_manager):
         return redirect('orders:order_list')
-    if user.is_manager and order.user_id not in user.get_all_order_user_ids():
+    if order.user_id not in user.get_all_order_user_ids():
         return redirect('orders:order_list')
 
     if order.status not in [Order.Status.SUBMITTED]:
@@ -389,10 +415,12 @@ def order_cancel(request, pk):
 @login_required
 @require_POST
 def order_delete(request, pk):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('orders:order_list')
 
     order = get_object_or_404(Order, pk=pk)
+    if order.user_id not in request.user.get_all_order_user_ids():
+        return redirect('orders:order_list')
     order_number = order.order_number
     order.delete()
     messages.success(request, f'주문 {order_number}이(가) 삭제되었습니다.')
@@ -402,16 +430,22 @@ def order_delete(request, pk):
 @login_required
 @require_POST
 def order_status_update(request, pk):
-    if not (request.user.is_admin or request.user.is_manager):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager):
         return redirect('orders:order_list')
 
     order = get_object_or_404(Order, pk=pk)
-    if request.user.is_manager and order.user_id not in request.user.get_all_order_user_ids():
+    if order.user_id not in request.user.get_all_order_user_ids():
         return redirect('orders:order_list')
     new_status = request.POST.get('status')
     if new_status in dict(Order.Status.choices):
         order.status = new_status
         order.save(update_fields=['status', 'updated_at'])
+        # 주문 항목 상태 동기화
+        from .models import OrderItem
+        if new_status == Order.Status.PROCESSING:
+            order.items.exclude(status=OrderItem.Status.COMPLETED).update(status=OrderItem.Status.PROCESSING)
+        elif new_status == Order.Status.COMPLETED:
+            order.items.update(status=OrderItem.Status.COMPLETED)
         _notify_order_status(order)
         messages.success(request, f'주문 상태가 {order.get_status_display()}(으)로 변경되었습니다.')
     return redirect('orders:order_detail', pk=pk)
@@ -420,7 +454,7 @@ def order_status_update(request, pk):
 @login_required
 @require_POST
 def order_bulk_status_update(request):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('orders:order_list')
 
     order_ids = request.POST.getlist('order_ids')
@@ -429,11 +463,18 @@ def order_bulk_status_update(request):
         messages.error(request, '주문과 상태를 선택하세요.')
         return redirect('orders:order_list')
 
-    orders = Order.objects.filter(pk__in=order_ids)
+    allowed_user_ids = request.user.get_all_order_user_ids()
+    orders = Order.objects.filter(pk__in=order_ids, user_id__in=allowed_user_ids)
+    from .models import OrderItem
     count = 0
     for order in orders:
         order.status = new_status
         order.save(update_fields=['status', 'updated_at'])
+        # 주문 항목 상태 동기화
+        if new_status == Order.Status.PROCESSING:
+            order.items.exclude(status=OrderItem.Status.COMPLETED).update(status=OrderItem.Status.PROCESSING)
+        elif new_status == Order.Status.COMPLETED:
+            order.items.update(status=OrderItem.Status.COMPLETED)
         _notify_order_status(order)
         count += 1
 
@@ -445,11 +486,11 @@ def order_bulk_status_update(request):
 @login_required
 @require_POST
 def order_confirm_payment(request, pk):
-    if not (request.user.is_admin or request.user.is_manager):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager):
         return redirect('orders:order_list')
 
     order = get_object_or_404(Order, pk=pk)
-    if request.user.is_manager and order.user_id not in request.user.get_all_order_user_ids():
+    if order.user_id not in request.user.get_all_order_user_ids():
         return redirect('orders:order_list')
     try:
         confirm_payment(order, request.user)
@@ -464,11 +505,11 @@ def order_confirm_payment(request, pk):
 @login_required
 @require_POST
 def order_deadline_update(request, pk):
-    if not (request.user.is_admin or request.user.is_manager):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager):
         return redirect('orders:order_list')
 
     order = get_object_or_404(Order, pk=pk)
-    if request.user.is_manager and order.user_id not in request.user.get_all_order_user_ids():
+    if order.user_id not in request.user.get_all_order_user_ids():
         return redirect('orders:order_list')
     deadline_str = request.POST.get('deadline')
     if deadline_str:
@@ -487,22 +528,37 @@ def order_deadline_update(request, pk):
 
 
 @login_required
+@require_POST
+def order_approve(request, pk):
+    if not (request.user.is_admin or request.user.is_accountant or request.user.is_manager):
+        return redirect('orders:order_list')
+    order = get_object_or_404(Order, pk=pk)
+    if order.user_id not in request.user.get_all_order_user_ids():
+        return redirect('orders:order_list')
+    order.approved_by = request.user
+    order.approved_at = timezone.now()
+    order.save(update_fields=['approved_by', 'approved_at', 'updated_at'])
+    approver_name = request.user.first_name or request.user.company_name or request.user.username
+    messages.success(request, f'주문이 승인되었습니다. (승인자: {approver_name})')
+    return redirect('orders:order_detail', pk=pk)
+
+
+@login_required
 def order_items_export(request, pk):
     """주문 항목 엑셀 다운로드 — 상품 스키마 양식 그대로"""
-    order = get_object_or_404(Order.objects.select_related('user', 'user__parent', 'product'), pk=pk)
+    order = get_object_or_404(Order.objects.select_related('user', 'user__parent', 'product', 'approved_by'), pk=pk)
     user = request.user
 
     # 권한 체크
-    if not user.is_admin:
-        if user.is_manager:
-            if order.user_id not in user.get_all_order_user_ids():
-                return redirect('orders:order_list')
-        elif user.is_agency:
-            child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
-            if order.user_id not in child_ids + [user.id]:
-                return redirect('orders:order_list')
-        elif order.user != user:
+    if user.is_admin or user.is_accountant or user.is_manager:
+        if order.user_id not in user.get_all_order_user_ids():
             return redirect('orders:order_list')
+    elif user.is_agency:
+        child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
+        if order.user_id not in child_ids + [user.id]:
+            return redirect('orders:order_list')
+    elif order.user != user:
+        return redirect('orders:order_list')
 
     schema = order.product.schema or []
     items = order.items.all().order_by('row_number')
@@ -559,15 +615,13 @@ def order_items_export(request, pk):
 @login_required
 def order_export(request):
     user = request.user
-    if user.is_admin:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').all()
-    elif user.is_manager:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user_id__in=user.get_all_order_user_ids())
+    if user.is_admin or user.is_accountant or user.is_manager:
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user_id__in=user.get_all_order_user_ids())
     elif user.is_agency:
         child_ids = User.objects.filter(parent=user).values_list('id', flat=True)
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user_id__in=list(child_ids) + [user.id])
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user_id__in=list(child_ids) + [user.id])
     else:
-        orders = Order.objects.select_related('user', 'user__parent', 'product').filter(user=user)
+        orders = Order.objects.select_related('user', 'user__parent', 'product', 'approved_by').filter(user=user)
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -604,11 +658,14 @@ def order_export(request):
 @login_required
 def settlement_list(request):
     user = request.user
-    if not user.is_admin:
+    if not (user.is_admin or user.is_accountant):
         return redirect('orders:order_list')
 
     confirmed_statuses = [Order.Status.PAID, Order.Status.PROCESSING, Order.Status.COMPLETED]
-    orders = Order.objects.select_related('user', 'product', 'confirmed_by').filter(status__in=confirmed_statuses)
+    allowed_user_ids = user.get_all_order_user_ids()
+    orders = Order.objects.select_related('user', 'product', 'confirmed_by').filter(
+        status__in=confirmed_statuses, user_id__in=allowed_user_ids
+    )
 
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
@@ -672,14 +729,47 @@ def settlement_list(request):
     })
 
 
-SETTLEMENT_SECRET_PASSWORD = os.getenv('SETTLEMENT_SECRET_PASSWORD', '')
+@login_required
+def api_order_renew_data(request, pk):
+    order = get_object_or_404(Order.objects.select_related('user', 'product'), pk=pk)
+    user = request.user
+
+    # 권한: 본인 OR admin/accountant/manager/agency(소속 셀러의 주문)
+    if user.is_admin or user.is_accountant or user.is_manager:
+        if order.user_id not in user.get_all_order_user_ids():
+            return JsonResponse({'success': False, 'message': '접근 권한이 없습니다.'}, status=403)
+    elif user.is_agency:
+        child_ids = list(User.objects.filter(parent=user).values_list('id', flat=True))
+        if order.user_id not in child_ids + [user.id]:
+            return JsonResponse({'success': False, 'message': '접근 권한이 없습니다.'}, status=403)
+    elif order.user != user:
+        return JsonResponse({'success': False, 'message': '접근 권한이 없습니다.'}, status=403)
+
+    # 상품이 비활성이면 에러
+    if not order.product.is_active:
+        return JsonResponse({'success': False, 'message': '해당 상품이 비활성 상태입니다. 재연장할 수 없습니다.'}, status=400)
+
+    rows = list(
+        order.items.order_by('row_number').values_list('data', flat=True)
+    )
+
+    return JsonResponse({
+        'success': True,
+        'product_id': order.product_id,
+        'product_name': order.product.name,
+        'memo': order.memo,
+        'rows': rows,
+    })
+
+
+SETTLEMENT_SECRET_PASSWORD = os.getenv('SETTLEMENT_SECRET_PASSWORD', '1019')
 SETTLEMENT_SECRET_SESSION_KEY = 'settlement_secret_ok'
 SETTLEMENT_SECRET_SESSION_AGE_SECONDS = int(os.getenv('SETTLEMENT_SECRET_SESSION_AGE_SECONDS', '1800'))
 
 
 @login_required
 def settlement_secret(request):
-    if not request.user.is_admin:
+    if not (request.user.is_admin or request.user.is_accountant):
         return redirect('orders:order_list')
 
     if not SETTLEMENT_SECRET_PASSWORD:
@@ -699,7 +789,10 @@ def settlement_secret(request):
         return render(request, 'orders/settlement_secret_login.html')
 
     confirmed_statuses = [Order.Status.PAID, Order.Status.PROCESSING, Order.Status.COMPLETED]
-    orders = Order.objects.select_related('user', 'product', 'confirmed_by').filter(status__in=confirmed_statuses)
+    allowed_user_ids = request.user.get_all_order_user_ids()
+    orders = Order.objects.select_related('user', 'product', 'confirmed_by').filter(
+        status__in=confirmed_statuses, user_id__in=allowed_user_ids
+    )
 
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
@@ -718,6 +811,20 @@ def settlement_secret(request):
     orders = orders.order_by('-confirmed_at')
 
     order_list_all = list(orders)
+
+    # PricePolicy를 미리 한번에 조회 (N+1 쿼리 방지)
+    policy_keys = set((o.product_id, o.user_id) for o in order_list_all)
+    if policy_keys:
+        q = models.Q()
+        for pid, uid in policy_keys:
+            q |= models.Q(product_id=pid, user_id=uid)
+        policies_map = {
+            (p.product_id, p.user_id): p
+            for p in PricePolicy.objects.filter(q)
+        }
+    else:
+        policies_map = {}
+
     enriched_orders = []
     sum_total_amount = Decimal('0')
     sum_supply = Decimal('0')
@@ -729,7 +836,13 @@ def settlement_secret(request):
         total = int(order.total_amount)
         supply = int(round(Decimal(total) / Decimal('1.1')))
         vat = total - supply
-        rate = order.product.reduction_rate or 0
+
+        # 업체별 감은 비율 조회 → 없으면 상품 기본값 사용
+        policy = policies_map.get((order.product_id, order.user_id))
+        if policy and policy.reduction_rate is not None:
+            rate = policy.reduction_rate
+        else:
+            rate = order.product.reduction_rate or 0
         total_qty = order.total_quantity or 0
         reduced_qty = int(total_qty * rate / 100)
         actual_qty = total_qty - reduced_qty

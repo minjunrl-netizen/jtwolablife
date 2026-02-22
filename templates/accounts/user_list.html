@@ -3,94 +3,84 @@
 
 {% block extra_css %}
 <style>
-    .price-input {
-        width: 90px; border: 1px solid transparent;
-        border-radius: 8px; padding: 5px 8px;
-        font-size: 13px; font-weight: 600;
-        text-align: right; background: var(--toss-gray-50);
-        transition: all 0.15s;
-        color: var(--toss-gray-800);
+    .user-tree { display: flex; flex-direction: column; gap: 12px; }
+    .tree-group {
+        background: #fff; border-radius: 16px;
+        border: 1px solid var(--toss-gray-100);
+        overflow: hidden;
     }
-    .price-input:hover { border-color: var(--toss-gray-300); }
-    .price-input:focus {
-        border-color: var(--toss-blue);
-        box-shadow: 0 0 0 3px rgba(49,130,246,0.12);
-        outline: none; background: #fff;
+    .tree-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 20px; gap: 12px;
+        border-bottom: 1px solid var(--toss-gray-50);
+        transition: background 0.1s;
     }
-    .price-input.saved {
-        background: #e6f9f1;
-        animation: savedFlash 0.6s ease;
-    }
-    .price-input.empty {
-        color: var(--toss-gray-400);
-        font-weight: 400;
-        background: transparent;
-    }
-    @keyframes savedFlash {
-        0% { background: #a7f3d0; }
-        100% { background: #e6f9f1; }
-    }
-    .product-header {
-        font-size: 12px; font-weight: 600;
-        color: var(--toss-gray-700);
-        text-align: center;
-    }
-    .product-header small {
-        display: block; font-size: 10px; font-weight: 400;
-        color: var(--toss-gray-400);
-    }
-    .user-info {
-        display: flex; align-items: center; gap: 10px;
-    }
-    .user-info .avatar {
-        width: 34px; height: 34px; border-radius: 50%;
+    .tree-item:last-child { border-bottom: none; }
+    .tree-item:hover { background: var(--toss-gray-50); }
+    .tree-item.depth-1 { padding-left: 40px; }
+    .tree-item.depth-2 { padding-left: 60px; }
+
+    .tree-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .tree-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .avatar {
+        width: 32px; height: 32px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
-        font-weight: 700; font-size: 13px; flex-shrink: 0;
+        font-weight: 700; font-size: 12px; flex-shrink: 0;
     }
-    .user-info .avatar.admin { background: #fce7f3; color: #be185d; }
-    .user-info .avatar.manager { background: #fef3c7; color: #d97706; }
-    .user-info .avatar.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
-    .user-info .avatar.seller { background: #e6f9f1; color: var(--toss-green); }
-    .user-info .name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); }
-    .user-info .meta { font-size: 11px; color: var(--toss-gray-400); }
+    .avatar.admin { background: #fce7f3; color: #be185d; }
+    .avatar.accountant { background: #ede9fe; color: #7c3aed; }
+    .avatar.manager { background: #fef3c7; color: #d97706; }
+    .avatar.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .avatar.seller { background: #e6f9f1; color: var(--toss-green); }
 
-    .admin-row td { background: #fdf2f8 !important; }
-    .manager-row td { background: #fffbeb !important; }
-    .agency-row td { background: var(--toss-gray-50) !important; }
-    .seller-row .user-cell { padding-left: 32px !important; }
-    .seller-row .tree-line,
-    .agency-sub-row .tree-line {
-        display: inline-block; width: 16px; text-align: center;
-        color: var(--toss-gray-300); font-size: 12px; margin-right: 2px;
-    }
-    .agency-sub-row .user-cell { padding-left: 20px !important; }
+    .user-name { font-size: 14px; font-weight: 600; color: var(--toss-gray-800); white-space: nowrap; }
+    .user-detail { font-size: 12px; color: var(--toss-gray-400); white-space: nowrap; }
 
-    .section-divider td {
-        padding: 20px 16px 8px !important;
-        font-size: 12px; font-weight: 600;
-        color: var(--toss-gray-400); text-transform: uppercase;
-        letter-spacing: 0.04em;
-        border-bottom: 1px solid var(--toss-gray-200) !important;
-        background: none !important;
+    .role-tag {
+        display: inline-block; padding: 2px 8px; border-radius: 10px;
+        font-size: 11px; font-weight: 600; flex-shrink: 0;
     }
-    .category-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .cat-tab {
-        padding: 8px 18px; border-radius: 20px;
-        font-size: 13px; font-weight: 600;
-        border: 1px solid var(--toss-gray-200);
-        background: #fff; color: var(--toss-gray-600);
-        cursor: pointer; transition: all 0.15s;
+    .role-tag.admin { background: #fce7f3; color: #be185d; }
+    .role-tag.accountant { background: #ede9fe; color: #7c3aed; }
+    .role-tag.manager { background: #fef3c7; color: #d97706; }
+    .role-tag.agency { background: var(--toss-blue-light); color: var(--toss-blue); }
+    .role-tag.seller { background: #e6f9f1; color: var(--toss-green); }
+
+    .status-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     }
-    .cat-tab:hover { border-color: var(--toss-blue); color: var(--toss-blue); }
-    .cat-tab.active { background: var(--toss-blue); color: #fff; border-color: var(--toss-blue); }
+    .status-dot.active { background: var(--toss-green); }
+    .status-dot.inactive { background: var(--toss-gray-300); }
+
+    .btn-edit {
+        padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 500;
+        color: var(--toss-gray-500); background: var(--toss-gray-50);
+        border: 1px solid var(--toss-gray-100); cursor: pointer;
+        text-decoration: none; transition: all 0.15s;
+    }
+    .btn-edit:hover { background: var(--toss-gray-100); color: var(--toss-gray-700); }
+
+    .section-label {
+        font-size: 12px; font-weight: 600; color: var(--toss-gray-400);
+        letter-spacing: 0.03em; margin: 24px 0 8px; padding-left: 4px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    .tree-line {
+        color: var(--toss-gray-300); font-size: 11px; margin-right: 2px;
+    }
+    .count-badge {
+        font-size: 11px; color: var(--toss-gray-400); font-weight: 400;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <p style="font-size:14px;color:var(--toss-gray-500);margin:0">
-        {% if request.user.is_admin %}
-        셀에 직접 금액을 입력하면 자동 저장됩니다. 비우면 기본 단가가 적용됩니다.
+        {% if request.user.is_admin or request.user.is_accountant %}
+        업체 계정을 관리합니다. 단가는 <a href="{% url 'products:price_matrix' %}" style="color:var(--toss-blue);font-weight:600">단가 설정</a>에서 관리하세요.
         {% elif request.user.is_manager %}
         소속 대행사 및 셀러 목록
         {% else %}
@@ -102,552 +92,237 @@
     </a>
 </div>
 
-{% if request.user.is_admin %}
-{# ── 관리자: 총관리자 + 책임자→대행사→셀러 3단계 트리 + 단가 ── #}
-<div class="category-tabs">
-    {% for cat in categories %}
-    <button class="cat-tab {% if forloop.first %}active{% endif %}"
-            data-cat-id="{{ cat.id }}" onclick="switchTab({{ cat.id }})">
-        {{ cat.name }}
-    </button>
-    {% endfor %}
-</div>
-<div class="toss-card">
-    <div style="overflow-x:auto">
-        <table class="toss-table" style="min-width:700px">
-            <thead>
-                <tr>
-                    <th style="min-width:260px;position:sticky;left:0;background:var(--toss-gray-50);z-index:2">업체</th>
-                    <th style="min-width:100px">이름/직급</th>
-                    <th style="width:70px">상태</th>
-                    {% for p in products %}
-                    <th data-cat-id="{{ p.category_id|default:'0' }}" style="text-align:center;min-width:120px">
-                        <div class="product-header">
-                            {{ p.name }}
-                            <small>기본 {{ p.base_price|floatformat:0|intcomma }}원</small>
-                        </div>
-                    </th>
-                    {% endfor %}
-                    <th style="width:60px"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {# 총관리자 + 직속 셀러 #}
-                {% for row in admin_rows %}
-                <tr class="admin-row">
-                    <td style="position:sticky;left:0;z-index:1">
-                        <div class="user-info">
-                            <div class="avatar admin">{{ row.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
-                                <div class="meta">
-                                    <span class="toss-badge red" style="font-size:10px;padding:1px 6px">총관리자</span>
-                                    {{ row.user.username }}
-                                    {% if row.sellers %} &middot; 셀러 {{ row.sellers|length }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ row.user.first_name|default:"-" }}</td>
-                    <td>
-                        {% if row.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in row.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ row.user.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {# 총관리자 직속 셀러 #}
-                {% for sr in row.sellers %}
-                <tr class="seller-row">
-                    <td class="user-cell" style="position:sticky;left:0;background:#fff;z-index:1;padding-left:32px !important">
-                        <div class="user-info">
-                            <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
-                            <div class="avatar seller">{{ sr.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ sr.user.company_name|default:sr.user.username }}</div>
-                                <div class="meta">{{ sr.user.username }}{% if sr.user.phone %} &middot; {{ sr.user.phone }}{% endif %}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ sr.user.first_name|default:"-" }}</td>
-                    <td>
-                        {% if sr.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in sr.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ sr.user.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' sr.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% endfor %}
+{% if request.user.is_admin or request.user.is_accountant %}
 
-                {# 책임자 그룹 #}
-                {% for mg in manager_groups %}
-                <tr class="manager-row">
-                    <td style="position:sticky;left:0;z-index:1">
-                        <div class="user-info">
-                            <div class="avatar manager">{{ mg.manager.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ mg.manager.company_name|default:mg.manager.username }}</div>
-                                <div class="meta">
-                                    <span class="toss-badge orange" style="font-size:10px;padding:1px 6px">책임자</span>
-                                    {{ mg.manager.username }}
-                                    {% if mg.agencies %} &middot; 대행사 {{ mg.agencies|length }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ mg.manager.first_name|default:"-" }}</td>
-                    <td>
-                        {% if mg.manager.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in mg.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ mg.manager.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' mg.manager.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {# 책임자 소속 대행사 #}
-                {% for ag in mg.agencies %}
-                <tr class="agency-row agency-sub-row">
-                    <td class="user-cell" style="position:sticky;left:0;z-index:1">
-                        <div class="user-info">
-                            <span class="tree-line">{% if forloop.last and not ag.sellers %}└{% else %}├{% endif %}</span>
-                            <div class="avatar agency">{{ ag.agency.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ ag.agency.company_name|default:ag.agency.username }}</div>
-                                <div class="meta">
-                                    <span class="toss-badge blue" style="font-size:10px;padding:1px 6px">대행사</span>
-                                    {{ ag.agency.username }}
-                                    {% if ag.sellers %} &middot; 셀러 {{ ag.sellers|length }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ ag.agency.first_name|default:"-" }}</td>
-                    <td>
-                        {% if ag.agency.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in ag.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ ag.agency.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' ag.agency.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {# 대행사 소속 셀러 #}
-                {% for row in ag.sellers %}
-                <tr class="seller-row">
-                    <td class="user-cell" style="position:sticky;left:0;background:#fff;z-index:1;padding-left:48px !important">
-                        <div class="user-info">
-                            <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
-                            <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
-                                <div class="meta">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ row.user.first_name|default:"-" }}</td>
-                    <td>
-                        {% if row.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in row.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ row.user.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% endfor %}
-                {% endfor %}
+<div class="user-tree">
 
-                {# 책임자 소속 없는 대행사 그룹 #}
-                {% if groups %}
-                <tr class="section-divider"><td colspan="99">책임자 미배정 대행사</td></tr>
-                {% for group in groups %}
-                <tr class="agency-row">
-                    <td style="position:sticky;left:0;z-index:1">
-                        <div class="user-info">
-                            <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ group.agency.company_name|default:group.agency.username }}</div>
-                                <div class="meta">
-                                    <span class="toss-badge blue" style="font-size:10px;padding:1px 6px">대행사</span>
-                                    {{ group.agency.username }}
-                                    {% if group.sellers %} &middot; 셀러 {{ group.sellers|length }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ group.agency.first_name|default:"-" }}</td>
-                    <td>
-                        {% if group.agency.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in group.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ group.agency.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% for row in group.sellers %}
-                <tr class="seller-row">
-                    <td class="user-cell" style="position:sticky;left:0;background:#fff;z-index:1">
-                        <div class="user-info">
-                            <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
-                            <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
-                                <div class="meta">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ row.user.first_name|default:"-" }}</td>
-                    <td>
-                        {% if row.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in row.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ row.user.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% endfor %}
-                {% endif %}
-
-                {% if indie_sellers %}
-                {# 소속 없는 셀러 #}
-                <tr class="section-divider"><td colspan="99">소속 없는 셀러</td></tr>
-                {% for row in indie_sellers %}
-                <tr>
-                    <td style="position:sticky;left:0;background:#fff;z-index:1">
-                        <div class="user-info">
-                            <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
-                                <div class="meta">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600);font-size:13px">{{ row.user.first_name|default:"-" }}</td>
-                    <td>
-                        {% if row.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    {% for item in row.prices %}
-                    <td data-cat-id="{{ item.product.category_id|default:'0' }}" style="text-align:center">
-                        <input type="number" class="price-input {% if not item.price %}empty{% endif %}"
-                               data-product-id="{{ item.product.id }}"
-                               data-user-id="{{ row.user.id }}"
-                               value="{% if item.price %}{{ item.price }}{% endif %}"
-                               placeholder="{{ item.product.base_price|floatformat:0|intcomma }}"
-                               min="0">
-                    </td>
-                    {% endfor %}
-                    <td>
-                        <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% endif %}
-
-                {% if not admin_rows and not manager_groups and not groups and not indie_sellers %}
-                <tr><td colspan="99" style="text-align:center;padding:60px;color:var(--toss-gray-400)">
-                    <i class="bi bi-people" style="font-size:36px;display:block;margin-bottom:12px"></i>
-                    등록된 업체가 없습니다
-                </td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+    {# ── 총관리자 ── #}
+    {% for row in admin_rows %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar admin">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag admin">총관리자</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.first_name %} &middot; {{ row.user.first_name }}{% endif %}</span>
+                {% if row.sellers %}<span class="count-badge">셀러 {{ row.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}" title="{% if row.user.is_active %}활성{% else %}비활성{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for ar in row.accountants %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last and not row.sellers %}└{% else %}├{% endif %}</span>
+                <div class="avatar accountant">{{ ar.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ ar.user.company_name|default:ar.user.username }}</span>
+                <span class="role-tag accountant">경리</span>
+                <span class="user-detail">{{ ar.user.username }}{% if ar.user.first_name %} &middot; {{ ar.user.first_name }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if ar.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' ar.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% for sr in row.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ sr.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ sr.user.company_name|default:sr.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ sr.user.username }}{% if sr.user.phone %} &middot; {{ sr.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if sr.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' sr.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
     </div>
+    {% endfor %}
+
+    {# ── 책임자 그룹 ── #}
+    {% for mg in manager_groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar manager">{{ mg.manager.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ mg.manager.company_name|default:mg.manager.username }}</span>
+                <span class="role-tag manager">책임자</span>
+                <span class="user-detail">{{ mg.manager.username }}{% if mg.manager.first_name %} &middot; {{ mg.manager.first_name }}{% endif %}</span>
+                {% if mg.agencies %}<span class="count-badge">대행사 {{ mg.agencies|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if mg.manager.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' mg.manager.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for ag in mg.agencies %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last and not ag.sellers %}└{% else %}├{% endif %}</span>
+                <div class="avatar agency">{{ ag.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ ag.agency.company_name|default:ag.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ ag.agency.username }}</span>
+                {% if ag.sellers %}<span class="count-badge">셀러 {{ ag.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if ag.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' ag.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in ag.sellers %}
+        <div class="tree-item depth-2">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+
+    {# ── 책임자 미배정 대행사 ── #}
+    {% if groups %}
+    <div class="section-label">책임자 미배정 대행사</div>
+    {% for group in groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ group.agency.company_name|default:group.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ group.agency.username }}</span>
+                {% if group.sellers %}<span class="count-badge">셀러 {{ group.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if group.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in group.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ── 소속 없는 셀러 ── #}
+    {% if indie_sellers %}
+    <div class="section-label">소속 없는 셀러</div>
+    <div class="tree-group">
+        {% for row in indie_sellers %}
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not admin_rows and not manager_groups and not groups and not indie_sellers %}
+    <div class="tree-group" style="padding:60px 20px;text-align:center">
+        <i class="bi bi-people" style="font-size:36px;color:var(--toss-gray-300);display:block;margin-bottom:12px"></i>
+        <p style="color:var(--toss-gray-400);margin:0">등록된 업체가 없습니다</p>
+    </div>
+    {% endif %}
+
 </div>
 
 {% elif request.user.is_manager %}
-{# ── 책임자: 대행사→셀러 2단계 트리 (읽기만) ── #}
-<div class="toss-card">
-    <div style="overflow-x:auto">
-        <table class="toss-table">
-            <thead>
-                <tr>
-                    <th style="min-width:220px">업체</th>
-                    <th>아이디</th>
-                    <th>이름/직급</th>
-                    <th>연락처</th>
-                    <th>상태</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for group in manager_view_groups %}
-                <tr class="agency-row">
-                    <td>
-                        <div class="user-info">
-                            <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ group.agency.company_name|default:group.agency.username }}</div>
-                                <div class="meta">
-                                    <span class="toss-badge blue" style="font-size:10px;padding:1px 6px">대행사</span>
-                                    {% if group.sellers %} &middot; 셀러 {{ group.sellers|length }}{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600)">{{ group.agency.username }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ group.agency.first_name|default:"-" }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ group.agency.phone|default:"-" }}</td>
-                    <td>
-                        {% if group.agency.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% for row in group.sellers %}
-                <tr class="seller-row">
-                    <td class="user-cell">
-                        <div class="user-info">
-                            <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
-                            <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ row.user.company_name|default:row.user.username }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600)">{{ row.user.username }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ row.user.first_name|default:"-" }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ row.user.phone|default:"-" }}</td>
-                    <td>
-                        {% if row.user.is_active %}
-                        <span class="toss-badge green" style="font-size:11px">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray" style="font-size:11px">비활성</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-toss btn-toss-light btn-toss-sm" style="padding:4px 10px;font-size:12px">수정</a>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% empty %}
-                <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--toss-gray-400)">소속 대행사가 없습니다</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+{# ── 책임자: 대행사→셀러 2단계 트리 ── #}
+<div class="user-tree">
+    {% for group in manager_view_groups %}
+    <div class="tree-group">
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar agency">{{ group.agency.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ group.agency.company_name|default:group.agency.username }}</span>
+                <span class="role-tag agency">대행사</span>
+                <span class="user-detail">{{ group.agency.username }}{% if group.agency.phone %} &middot; {{ group.agency.phone }}{% endif %}</span>
+                {% if group.sellers %}<span class="count-badge">셀러 {{ group.sellers|length }}</span>{% endif %}
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if group.agency.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' group.agency.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% for row in group.sellers %}
+        <div class="tree-item depth-1">
+            <div class="tree-left">
+                <span class="tree-line">{% if forloop.last %}└{% else %}├{% endif %}</span>
+                <div class="avatar seller">{{ row.user.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ row.user.company_name|default:row.user.username }}</span>
+                <span class="role-tag seller">셀러</span>
+                <span class="user-detail">{{ row.user.username }}{% if row.user.phone %} &middot; {{ row.user.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if row.user.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' row.user.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% endfor %}
     </div>
+    {% empty %}
+    <div class="tree-group" style="padding:48px 20px;text-align:center">
+        <p style="color:var(--toss-gray-400);margin:0">소속 대행사가 없습니다</p>
+    </div>
+    {% endfor %}
 </div>
 
 {% else %}
 {# ── 대행사: 소속 셀러 목록 ── #}
-<div class="toss-card">
-    <div style="overflow-x:auto">
-        <table class="toss-table">
-            <thead>
-                <tr>
-                    <th>업체</th>
-                    <th>아이디</th>
-                    <th>이름/직급</th>
-                    <th>연락처</th>
-                    <th>상태</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in sellers %}
-                <tr>
-                    <td>
-                        <div class="user-info">
-                            <div class="avatar seller">{{ u.company_name|make_list|first|default:"?" }}</div>
-                            <div>
-                                <div class="name">{{ u.company_name|default:"-" }}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="color:var(--toss-gray-600)">{{ u.username }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ u.first_name|default:"-" }}</td>
-                    <td style="color:var(--toss-gray-600)">{{ u.phone|default:"-" }}</td>
-                    <td>
-                        {% if u.is_active %}
-                        <span class="toss-badge green">활성</span>
-                        {% else %}
-                        <span class="toss-badge gray">비활성</span>
-                        {% endif %}
-                    </td>
-                    <td><a href="{% url 'accounts:user_edit' u.pk %}" class="btn-toss btn-toss-light btn-toss-sm">수정</a></td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--toss-gray-400)">소속 셀러가 없습니다</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="user-tree">
+    <div class="tree-group">
+        {% for u in sellers %}
+        <div class="tree-item">
+            <div class="tree-left">
+                <div class="avatar seller">{{ u.company_name|make_list|first|default:"?" }}</div>
+                <span class="user-name">{{ u.company_name|default:"-" }}</span>
+                <span class="user-detail">{{ u.username }}{% if u.phone %} &middot; {{ u.phone }}{% endif %}</span>
+            </div>
+            <div class="tree-right">
+                <div class="status-dot {% if u.is_active %}active{% else %}inactive{% endif %}"></div>
+                <a href="{% url 'accounts:user_edit' u.pk %}" class="btn-edit">수정</a>
+            </div>
+        </div>
+        {% empty %}
+        <div style="padding:48px 20px;text-align:center;color:var(--toss-gray-400)">소속 셀러가 없습니다</div>
+        {% endfor %}
     </div>
 </div>
-{% endif %}
-{% endblock %}
-
-{% block extra_js %}
-{% if request.user.is_admin %}
-<script>
-const csrfToken = '{{ csrf_token }}';
-let saveTimeout = {};
-
-function switchTab(catId) {
-    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('.cat-tab[data-cat-id="'+catId+'"]').classList.add('active');
-    document.querySelectorAll('th[data-cat-id], td[data-cat-id]').forEach(el => {
-        el.style.display = (el.dataset.catId == catId) ? '' : 'none';
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // 카테고리 미지정 상품이 있으면 "미분류" 탭 추가
-    var hasUncategorized = document.querySelector('th[data-cat-id="0"], td[data-cat-id="0"]');
-    if (hasUncategorized) {
-        var tabBar = document.querySelector('.category-tabs');
-        if (tabBar) {
-            var btn = document.createElement('button');
-            btn.className = 'cat-tab';
-            btn.dataset.catId = '0';
-            btn.textContent = '미분류';
-            btn.onclick = function() { switchTab(0); };
-            tabBar.appendChild(btn);
-        }
-    }
-    var firstTab = document.querySelector('.cat-tab');
-    if (firstTab) switchTab(parseInt(firstTab.dataset.catId));
-});
-
-document.querySelectorAll('.price-input').forEach(input => {
-    input.addEventListener('input', function() {
-        const key = this.dataset.productId + '-' + this.dataset.userId;
-        clearTimeout(saveTimeout[key]);
-        saveTimeout[key] = setTimeout(() => savePrice(this), 500);
-    });
-    input.addEventListener('focus', function() { this.select(); });
-});
-
-function savePrice(input) {
-    const productId = parseInt(input.dataset.productId);
-    const userId = parseInt(input.dataset.userId);
-    const price = input.value.trim();
-
-    fetch('/products/prices/api/save/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-        },
-        body: JSON.stringify({
-            product_id: productId,
-            user_id: userId,
-            price: price === '' ? null : parseInt(price),
-        }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        input.classList.remove('empty');
-        if (data.status === 'deleted') input.classList.add('empty');
-        input.classList.add('saved');
-        setTimeout(() => input.classList.remove('saved'), 1200);
-    })
-    .catch(() => {
-        input.style.borderColor = 'var(--toss-red)';
-        setTimeout(() => input.style.borderColor = '', 1500);
-    });
-}
-</script>
 {% endif %}
 {% endblock %}
